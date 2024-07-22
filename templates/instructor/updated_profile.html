@@ -1,0 +1,102 @@
+{% extends 'base_dashboard.html' %}
+
+{% block title %}Update Profile{% endblock %}
+
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>จัดการข้อมูลส่วนตัว</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">อัปเดตโปรไฟล์ Admin/Instructor</h3>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                    <script type="text/javascript">
+                        document.addEventListener("DOMContentLoaded", function () {
+                            Swal.fire({
+                                title: "{{ message }}",
+                                icon: "{{ 'success' if category == 'success' else 'error' }}",
+                            });
+                        });
+                    </script>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% endwith %}
+            </div>
+
+            <form method="post" action="{{ url_for('updated_profile') }}" enctype="multipart/form-data">
+                <div class="card-body">
+                    <div class="form-group row mb-4">
+                        <label for="first_name" class="col-sm-2 col-form-label">ชื่อจริง</label>
+                        <div class="col-sm-2">
+                            <input type="text" class="form-control" id="first_name" name="first_name" placeholder="Enter First Name" value="{{ session.first_name }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group row mb-4">
+                        <label for="last_name" class="col-sm-2 col-form-label">นามสกุล</label>
+                        <div class="col-sm-2">
+                            <input type="text" class="form-control" id="last_name" name="last_name" placeholder="Enter Last Name" value="{{ session.last_name }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group row mb-4">
+                        <label for="email" class="col-sm-2 col-form-label">อีเมล์</label>
+                        <div class="col-sm-3">
+                            <input type="email" class="form-control" id="email" name="email" placeholder="Enter Email" value="{{ session.email }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group row mb-4">
+                        <label for="tel" class="col-sm-2 col-form-label">เบอร์โทร</label>
+                        <div class="col-sm-3">
+                            <input type="text" class="form-control" id="tel" name="tel" placeholder="Enter Telephone" value="{{ session.tel }}">
+                        </div>
+                    </div>
+
+                    {% if current_user.role == 'admin' %}
+                    <div class="form-group row">
+                        <label for="adminimage" class="col-sm-2 col-form-label">ภาพโปรไฟล์ (Admin)</label>
+                        <div class="col-sm-3">
+                            <input type="file" class="form-control" id="adminimage" name="adminimage">
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if current_user.role == 'instructor' %}
+                    <div class="form-group row">
+                        <label for="instructorimage" class="col-sm-2 col-form-label">ภาพโปรไฟล์ (Instructor)</label>
+                        <div class="col-sm-3">
+                            <input type="file" class="form-control" id="instructorimage" name="instructorimage">
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="form-group row">
+                        <div class="col-sm-10 offset-sm-2">
+                            <button type="submit" class="btn btn-primary">บันทึกการเปลี่ยนแปลง</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

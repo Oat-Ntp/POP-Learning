@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}Quiz_results{% endblock %}
+{% block content %}
+
+<section class="content">
+    <div class="card" style="margin-top: 15%;">
+        <div class="card-body" style="margin-top: 2%;">
+            <div class="row justify-content-center"> <!-- Added justify-content-center to center the content -->
+                <div class="col-md-4">
+
+                    <h5><b>วิชาที่เข้าสอบ : </b></h5>
+                    <br>ชื่อแบบทดสอบ : 
+                    <br>ชื่อบทเรียน : 
+                    <br>ผู้สอน:  
+                    <br>จำนวนข้อสอบ:  ข้อ
+                    <br>เกณฑ์ผ่าน: %                       
+                    <hr>
+                    <br>ผู้สอบ: 
+                    <br>วันที่เข้าสอบ:  น.
+
+                </div>
+
+                <div class="col-md-4">
+                    <div id="container" style="width:100%; height: 300px;"></div>
+                    <script src="https://code.highcharts.com/highcharts.js"></script>
+                    <script>
+                        Highcharts.chart('container', {
+                            chart: {
+                                type: 'pie'
+                            },
+                            title: {
+                                text: 'กราฟแสดง % การตอบถูก/ผิด'
+                            },
+                            tooltip: {
+                                valueSuffix: '%'
+                            },
+                            plotOptions: {
+                                pie: {
+                                    allowPointSelect: true,
+                                    borderWidth: 2,
+                                    cursor: 'pointer',
+                                    dataLabels: {
+                                        enabled: true,
+                                        format: '<b>{point.name}</b> : {point.percentage}%',
+                                        distance: 20
+                                    }
+                                }
+                            },
+                            series: [{
+                                name: 'Result',
+                                colorByPoint: true,
+                                data: [{
+                                    name: 'ตอบถูก',
+                                    y: 50,
+                                    sliced: true,
+                                    selected: true
+                                }, {
+                                    name: 'ตอบผิด',
+                                    y: 50
+                                }]
+                            }]
+                        });
+                    </script>
+                </div>
+
+                <div class="col-md-4">
+                    <h5 class="card-title">รายงานผลสอบ</h5>
+                    <table class="table table-bordered table-striped">
+                        <tbody>
+                            <tr>
+                                <th>ข้อสอบทั้งหมด</th>
+                                <td> ข้อ</td>
+                            </tr>
+                            <tr>
+                                <th>ตอบถูก</th>
+                                <td>- ข้อ</td>
+                            </tr>
+                            <tr>
+                                <th>ตอบผิด</th>
+                                <td>- ข้อ</td>
+                            </tr>
+                            <tr>
+                                <th>เกณฑ์ผ่าน</th>
+                                <td>%</td>
+                            </tr>
+                            <tr>
+                                <th>ทำข้อสอบได้</th>
+                                <td>-%</td>
+                            </tr>
+                   
+                            <tr>
+                                <th class="table-danger">สรุป</th>
+                                <td id="summaryText" class="table-danger"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

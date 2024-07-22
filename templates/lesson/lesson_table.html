@@ -1,0 +1,146 @@
+{% extends 'base_dashboard.html' %}
+{% block title %}Lesson Management{% endblock %}
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper" style="min-height: 1416px;">
+
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>Lesson Management</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h1 class="card-title">บทเรียน
+                                <a class="btn btn-success btn-sm" href="/insert_lesson">
+                                    <i class="fa fa-plus"></i> Add
+                                </a>
+                            </h1>
+                            {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                            <ul class="flashes">
+                                {% for category, message in messages %}
+                                <script type="text/javascript">
+                                    document.addEventListener("DOMContentLoaded", function () {
+                                        Swal.fire({
+                                            title: "{{ message }}",
+                                            icon: "{{ 'success' if category == 'success' else 'error' }}",
+                                        });
+                                    });
+                                </script>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                        <!-- /.card-header -->
+                        <div class="card-body">
+                            <table id="example1" class="table table-bordered table-striped table-sm">
+                                <thead>
+                                    <tr class="table-info">
+                                        <th style="width: 2%; text-align: center;">No.</th>
+                                        <th style="width: 10%; text-align: center;">คอร์ส</th>
+                                        <th style="width: 10%; text-align: center;">บทเรียน</th>
+                                        <th style="width: 10%; text-align: center;">วันที่สร้าง</th>
+                                        <th style="width: 3%; text-align: center;">เพิ่ม Quiz/Video</th>
+                                        <th style="width: 3%; text-align: center;">แก้ไข</th>
+                                        <th style="width: 3%; text-align: center;">ลบ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for lesson in data %}
+                                    <tr>
+                                        <td align="center">{{ loop.index }}</td>
+                                        <td align="center">
+                                            {% for course in course_data %}
+                                                {% if course[0] == lesson[3] %}
+                                                    {{ course[1] }}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </td>  
+                                        <td align="center">{{ lesson[1] }}</td>
+                                        <td align="center">{{ lesson[2] }}</td>    
+                                        <td align="center"><a class="btn btn-info btn-sm"
+                                            href="/add_quiz_video/{{lesson[0]}}">
+                                            <i class="fas fa-plus"></i> Add
+                                        </a></td>                                 
+                                        <td align="center"><a class="btn btn-warning btn-sm"
+                                                href="/edit_lesson/{{lesson[0]}}">
+                                                <i class="fas fa-pencil-alt"></i> Edit
+                                            </a></td>
+                                        <td align="center"><a class="btn btn-danger btn-sm"
+                                                href="/delete_lesson/{{lesson[0]}}">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </a></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- /.card-body -->
+                    </div>
+                    <!-- /.card -->
+                </div>
+                <!-- /.col -->
+            </div>
+            <!-- /.row -->
+        </div>
+        <!-- /.container-fluid -->
+    </section>
+    <!-- /.content -->
+</div>
+
+<!-- jQuery -->
+<script src="/static/plugins/jquery/jquery.min.js"></script>
+<!-- Bootstrap 4 -->
+<script src="/static/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+<!-- DataTables & Plugins -->
+<script src="/static/plugins/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
+<script src="/static/plugins/datatables-responsive/js/dataTables.responsive.min.js"></script>
+<script src="/static/plugins/datatables-responsive/js/responsive.bootstrap4.min.js"></script>
+<script src="/static/plugins/datatables-buttons/js/dataTables.buttons.min.js"></script>
+<script src="/static/plugins/datatables-buttons/js/buttons.bootstrap4.min.js"></script>
+<script src="/static/plugins/jszip/jszip.min.js"></script>
+<script src="/static/plugins/pdfmake/pdfmake.min.js"></script>
+<script src="/static/plugins/pdfmake/vfs_fonts.js"></script>
+<script src="/static/plugins/datatables-buttons/js/buttons.html5.min.js"></script>
+<script src="/static/plugins/datatables-buttons/js/buttons.print.min.js"></script>
+<script src="/static/plugins/datatables-buttons/js/buttons.colVis.min.js"></script>
+<!-- AdminLTE App -->
+<script src="/static/dist/js/adminlte.min.js"></script>
+<!-- Page specific script -->
+<script>
+    $(function () {
+        $("#example1").DataTable({
+            "responsive": true,
+            "lengthChange": true,
+            "autoWidth": false,
+            "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
+        }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
+        $('#example2').DataTable({
+            "paging": true,
+            "lengthChange": false,
+            "searching": false,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "responsive": true,
+        });
+    });
+</script>
+</body>
+
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends 'base_dashboard.html' %}
+{% block title %}Course Add{% endblock %}
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper" style="min-height: 1416px;">
+
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>Add Course</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="content">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card card">
+                    <div class="card-header">
+                        <h3 class="card-title">ฟอร์มเพิ่มคอร์สเรียน/Course</h3>
+                        <div class="card-tools">
+                            <button type="button" class="btn btn-tool" data-card-widget="collapse" title="Collapse">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body" style="display: block;">
+                        <form action="{{ url_for('insert_course') }}" method="POST" enctype="multipart/form-data">
+                            <div class="form-group row">
+                                <label for="featured_image" class="col-sm-2 col-form-label">Featured image:</label>
+                                <div class="col-sm-3">
+                                    <input type="file" class="form-control" id="featured_image" name="featured_image">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="featured_video" class="col-sm-2 col-form-label">Featured video:</label>
+                                <div class="col-sm-2">
+                                    <input type="text" class="form-control" id="featured_video" name="featured_video">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="title" class="col-sm-2 col-form-label">Title:</label>
+                                <div class="col-sm-2">
+                                    <input type="text" class="form-control" id="title" name="title">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="instructor_id" class="col-sm-2 col-form-label">Instructor:</label>
+                                <div class="col-sm-3">
+                                    <select id="instructor_id" class="form-control custom-select" name="instructor_id">
+                                        <option selected="" disabled="">Select instructor</option>
+                                        {% for instructor in instructor %}
+                                        <option value="{{ instructor[0] }}">{{ instructor[1] }} {{ instructor[2] }}
+                                        </option>
+                                        {% endfor %}    
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="category_id" class="col-sm-2 col-form-label">Category:</label>
+                                <div class="col-sm-3">
+                                    <select id="category_id" class="form-control custom-select" name="category_id">
+                                        <option selected disabled>Select category</option>
+                                        {% for category in categories %}
+                                        <option value="{{ category[0] }}">{{ category[2] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="description" class="col-sm-2 col-form-label">Course Description:</label>
+                                <div class="col-sm-4">
+                                    <textarea id="description" class="form-control" rows="5"
+                                        name="description"></textarea>
+                                </div>
+                            </div>                            
+                            <div class="form-group row">
+                                <label for="language" class="col-sm-2 col-form-label">Language:</label>
+                                <div class="col-sm-1">
+                                    <input type="text" id="language" class="form-control" name="language">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="deadline" class="col-sm-2 col-form-label">Deadline:</label>
+                                <div class="col-sm-3">
+                                    <input type="text" id="deadline" class="form-control" name="deadline">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="slug" class="col-sm-2 col-form-label">Slug:</label>
+                                <div class="col-sm-3">
+                                    <input type="text" id="slug" class="form-control" name="slug">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="status" class="col-sm-2 col-form-label">Status:</label>
+                                <div class="col-sm-1">
+                                    <select id="status" class="form-control custom-select" name="status">
+                                        <option selected="" disabled="">--------</option>
+                                        <option value="PUBLISH">PUBLISH</option>
+                                        <option value="DRAFT">DRAFT</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="certificate" class="col-sm-2 col-form-label">Certificate:</label>
+                                <div class="col-sm-1">
+                                    <input type="text" id="certificate" class="form-control" name="certificate">
+                                </div>
+                            </div>
+                            <!-- Add more fields as necessary -->
+                            <div class="col-12">
+                                <a href="/course_table" class="btn btn-secondary">Cancel</a>
+                                <input type="submit" value="Create new Course" class="btn btn-success float-right">
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <!-- Additional sections for WHAT_YOU_LEARNS, REQUIREMENTS, and VIDEOS can be added here -->
+        </div>
+    </section>
+</div>
+
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

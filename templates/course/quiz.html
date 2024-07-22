@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}Watch - {{ video.title }}{% endblock %}
+{% block content %}
+
+<!-- NAVBAR -->
+<header class="bg-white py-3">
+    <div class="px-5 px-lg-8 w-100">
+        <div class="d-md-flex align-items-center">
+            <!-- Brand -->
+            <a class="navbar-brand mb-2 mb-md-0" href="{{ url_for('home') }}">
+                <img src="{{ url_for('static', filename='img/logo/logo POP2.png') }}" class="navbar-brand-img" alt="...">
+            </a>
+
+            <!-- Lesson Title -->
+            {% if video %}
+            <div class="mx-auto mb-5 mb-md-0">
+                <h3 class="mb-0 line-clamp-2 text-black">{{ video.category_name }}: {{ video.title }}</h3>
+            </div>
+            {% else %}
+            <p>Quiz not found.</p>
+            {% endif %}
+
+            <!-- Back to Course -->
+            <a href="{{ url_for('course_details', slug=video.slug) }}" class="btn btn-sm btn-orange ms-md-6 px-6 mb-3 mb-md-0 flex-shrink-0">Back to Course</a>
+        </div>
+    </div>
+</header>
+
+<!-- PARALLAX -->
+<div class="position-absolute right-0 left-0 top-0 bottom-0" style="margin-top: 5%;">
+    <div class="cs-parallax">
+        <div class="cs-parallax-layer" data-depth="0.1">
+            <img class="img-fluid" src="/static/img/parallax/layer-01.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.3">
+            <img class="img-fluid" src="/static/img/parallax/layer-02.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.2">
+            <img class="img-fluid" src="/static/img/parallax/layer-03.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.2">
+            <img class="img-fluid" src="/static/img/parallax/layer-04.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.4">
+            <img class="img-fluid" src="/static/img/parallax/layer-05.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.3">
+            <img class="img-fluid" src="/static/img/parallax/layer-06.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.2">
+            <img class="img-fluid" src="/static/img/parallax/layer-07.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.4">
+            <img class="img-fluid" src="/static/img/parallax/layer-09.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.3">
+            <img class="img-fluid" src="/static/img/parallax/layer-10.svg" alt="Layer">
+        </div>
+    </div>
+</div>
+
+<!-- COURSE CONTENT -->
+<div class="container container-wd">
+    <div class="row pt-8 pb-10">
+        <div class="col-lg-8">
+            <section>
+                {% if questions %}
+                <div style="font-size: 30px;">
+                    <b>Quiz Title: {{ questions[0].quiz_name }}</b>
+                    <br>
+                </div>
+
+                <form id="quizform" action="{{ url_for('submit_quiz') }}" method="POST" style="font-size: 1rem;">
+                    <input type="hidden" name="user_id" value="{{ current_user.id }}">
+                    <input type="hidden" name="quiz_id" value="{{ quiz_id }}">
+                    <input type="hidden" name="lesson_id" value="{{ lesson_id }}">
+                
+                    {% for question in questions %}
+                    <div style="font-size: 20px; margin-top: 1rem;">
+                        <b>{{ loop.index }}. {{ question.question_name }}</b>
+                    </div>
+                
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_a_{{ question.question_id }}" value="choice_a" required>
+                        <label class="form-check-label" for="choice_a_{{ question.question_id }}">
+                            A. {{ question.choice_a }}
+                        </label>
+                    </div>
+                
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_b_{{ question.question_id }}" value="choice_b">
+                        <label class="form-check-label" for="choice_b_{{ question.question_id }}">
+                            B. {{ question.choice_b }}
+                        </label>
+                    </div>
+                
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_c_{{ question.question_id }}" value="choice_c">
+                        <label class="form-check-label" for="choice_c_{{ question.question_id }}">
+                            C. {{ question.choice_c }}
+                        </label>
+                    </div>
+                
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_d_{{ question.question_id }}" value="choice_d">
+                        <label class="form-check-label" for="choice_d_{{ question.question_id }}">
+                            D. {{ question.choice_d }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                
+                    <div class="d-flex justify-content-center" style="margin-top: 2rem;">
+                        <button type="submit" class="btn btn-primary">Submit Quiz</button>
+                    </div>
+                </form>
+                {% else %}
+                <p>No questions found for this quiz.</p>
+                {% endif %}
+            </section>
+        </div>
+        {% include 'components/sidebar-quiz_video.html' %}
+    </div>
+</div>
+
+<!-- Include SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Custom Script -->
+<script>
+
+    var next_element = {{next_element|tojson}};
+    console.log('hello')
+    console.log(next_element)
+
+    document.getElementById('quizform').addEventListener('submit', function(e) {
+        e.preventDefault(); // ป้องกันการส่งแบบฟอร์มเดิม
+        
+        // เก็บข้อมูลฟอร์ม
+        const formData = new FormData(e.target);
+        debugger
+    
+        // ส่งข้อมูลฟอร์มไปยังเซิร์ฟเวอร์ด้วย fetch
+        fetch(e.target.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // แสดง SweetAlert2 พร้อมกับคะแนนและสถานะผ่าน/ไม่ผ่าน
+            Swal.fire({
+                title: 'ผลการทำข้อสอบ!',
+                text: `คุณได้คะแนน: ${data.score} คะแนน\n${data.passed ? '(ผ่าน)' : '(ไม่ผ่าน)'}`,
+                icon: data.passed ? 'success' : 'error',
+                confirmButtonText: 'OK'
+            }).then((result) => {
+                
+                if (result.isConfirmed) {
+                    if (next_element.element_type == 'video'){
+                        var nextPageUrl = "{{ url_for('watch_video', slug=video.slug, video_id=next_element.element_id) }}";
+                    } else if (next_element.element_type == 'quiz'){
+                        var nextPageUrl = "{{ url_for('take_quiz', slug=video.slug, quiz_id=next_element.element_id) }}";
+                    }else{
+                        alert('invalid element type')
+                    }
+                    debugger
+                    window.location.href = nextPageUrl;
+                }
+            });
+        })
+        .catch(error => {
+            console.error('เกิดข้อผิดพลาด:', error);
+        });
+    });
+</script>
+
+    
+
+{% endblock %}

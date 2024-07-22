@@ -1,0 +1,208 @@
+{% extends 'base_dashboard.html' %}
+{% block title %}Add Question{% endblock %}
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>จัดการข้อมูลข้อสอบ/Question</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">ฟอร์มเพิ่มคำถาม</h3>
+            </div>
+            <div class="card-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                    <script type="text/javascript">
+                        document.addEventListener("DOMContentLoaded", function () {
+                            Swal.fire({
+                                title: "{{ message }}",
+                                icon: "{{ category }}",
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = "{{ url_for('add_question', quiz_id=quiz_id) }}";
+                                }
+                            });
+                        });
+                    </script>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% endwith %}
+                <form method="post" action="{{ url_for('add_question', quiz_id=quiz_id) }}" id="quizForm">
+                    <div id="quiz1">
+                        <div class="form-group row">
+                            <label for="score" class="col-sm-2 col-form-label">Score</label>
+                            <div class="col-sm-1">
+                                <input type="number" class="form-control" id="score" name="score" placeholder="คะแนน"
+                                    required>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="question_name" class="col-sm-2 col-form-label">Question</label>
+                            <div class="col-sm-4">
+                                <input type="text" class="form-control" id="question_name" name="question_name"
+                                    placeholder="คำถาม" required>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_a" class="col-sm-2 col-form-label">Choice A</label>
+                            <div class="col-sm-3">
+                                <input type="text" class="form-control" id="choice_a" name="choice_a"
+                                    placeholder="ตัวเลือกที่ A" required>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_b" class="col-sm-2 col-form-label">Choice B</label>
+                            <div class="col-sm-3">
+                                <input type="text" class="form-control" id="choice_b" name="choice_b"
+                                    placeholder="ตัวเลือกที่ B" required>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_c" class="col-sm-2 col-form-label">Choice C</label>
+                            <div class="col-sm-3">
+                                <input type="text" class="form-control" id="choice_c" name="choice_c"
+                                    placeholder="ตัวเลือกที่ C" required>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_d" class="col-sm-2 col-form-label">Choice D</label>
+                            <div class="col-sm-3">
+                                <input type="text" class="form-control" id="choice_d" name="choice_d"
+                                    placeholder="ตัวเลือกที่ D" required>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="correct_answer" class="col-sm-2 col-form-label">Answer</label>
+                            <div class="col-sm-3">
+                                <select class="form-control" id="correct_answer" name="correct_answer" required>
+                                    <option selected disabled>--------</option>
+                                    <option value="a">Choice A</option>
+                                    <option value="b">Choice B</option>
+                                    <option value="c">Choice C</option>
+                                    <option value="d">Choice D</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col-sm-10 offset-sm-2">
+                            <button type="submit" class="btn btn-primary" id="submitButton">Submit</button>
+                        </div>
+                    </div>
+                </form>
+
+
+
+            </div>
+            <div class="card-header">
+                <h3 class="card-title">รายการคำถาม/ตัวเลือก</h3>
+            </div>
+            <div class="card-body">
+                <table id="example1" class="table table-bordered table-striped table-sm">
+                    <thead>
+                        <tr class="table-info">
+                            <th style="width: 5%">No.</th>                           
+                            <th style="width: 10%">IMG</th>                          
+                            <th style="width: 70%">คำถาม/ตัวเลือก</th>
+                            <th style="width: 3%">เฉลย</th>
+                            <th style="width: 5%">คะแนน</th>
+                            <th style="width: 3%">แก้ไข</th>
+                            <th style="width: 3%">ลบ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for question in data %}
+                        <tr>
+                            <td align="center">{{ loop.index }}</td>
+                            
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <!-- <img src="{{ url_for('static', filename=question[8]) }}" class="rounded-circle"
+                                        alt="" style="width: 35px; height: 35px" /> -->
+                                    <div class="ms-3" style="margin-left: 10px;">
+                                        <p class="fw-bold mb-1">{{ question[] }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><b>คำถาม : {{ question[2] }}</b>
+                                <input class="form-control" type="text" value="A: {{ question[3] }}" disabled readonly>
+                                <input class="form-control" type="text" value="B: {{ question[4] }}" disabled readonly>
+                                <input class="form-control" type="text" value="C: {{ question[5] }}" disabled readonly>
+                                <input class="form-control" type="text" value="D: {{ question[6] }}" disabled readonly>
+                            </td>
+                            <td  align="center">
+                                <font color=red> {{ question[7] }} </font>
+                            </td>
+                            <td  align="center">
+                                <font color=blue> {{ question[1] }} </font>
+                            </td>
+                            <td align="center"><a class="btn btn-warning btn-sm" href="/edit_question/{{question[0]}}">
+                                    <i class="fas fa-pencil-alt"></i> Edit
+                                </a></td>
+                            <td align="center"><a class="btn btn-danger btn-sm" href="/delete_question/{{question[0]}}">
+                                    <i class="fas fa-trash"></i> Delete
+                                </a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </section>
+</div>
+<!-- jQuery -->
+<script src="/static/plugins/jquery/jquery.min.js"></script>
+<!-- Bootstrap 4 -->
+<script src="/static/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+<!-- DataTables & Plugins -->
+<script src="/static/plugins/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/plugins/datatables-bs4/js/dataTables.bootstrap4.min.js"></script>
+<script src="/static/plugins/datatables-responsive/js/dataTables.responsive.min.js"></script>
+<script src="/static/plugins/datatables-responsive/js/responsive.bootstrap4.min.js"></script>
+<script src="/static/plugins/datatables-buttons/js/dataTables.buttons.min.js"></script>
+<script src="/static/plugins/datatables-buttons/js/buttons.bootstrap4.min.js"></script>
+<script src="/static/plugins/jszip/jszip.min.js"></script>
+<script src="/static/plugins/pdfmake/pdfmake.min.js"></script>
+<script src="/static/plugins/pdfmake/vfs_fonts.js"></script>
+<script src="/static/plugins/datatables-buttons/js/buttons.html5.min.js"></script>
+<script src="/static/plugins/datatables-buttons/js/buttons.print.min.js"></script>
+<script src="/static/plugins/datatables-buttons/js/buttons.colVis.min.js"></script>
+<!-- AdminLTE App -->
+<script src="/static/dist/js/adminlte.min.js"></script>
+<!-- Page specific script -->
+<script>
+    $(function () {
+        $("#example1").DataTable({
+            "responsive": true,
+            "lengthChange": false,
+            "autoWidth": false,
+            // "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
+        }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
+        $('#example2').DataTable({
+            "paging": true,
+            "lengthChange": false,
+            // "searching": false,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "responsive": true,
+        });
+    });
+</script>
+</body>
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

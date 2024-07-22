@@ -1,0 +1,176 @@
+{% extends 'base_dashboard.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper">
+  <div class="content-header">
+    <div class="container-fluid">
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1 class="m-0">Dashboard || Admin</h1>
+          {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          <ul class="flashes">
+            {% for category, message in messages %}
+            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+            <script type="text/javascript">
+              const Toast = Swal.mixin({
+                toast: true,
+                position: "top-end",
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                  toast.onmouseenter = Swal.stopTimer;
+                  toast.onmouseleave = Swal.resumeTimer;
+                }
+              });
+              Toast.fire({
+                icon: "{{ category }}",
+                title: "{{ message }}"
+              });
+            </script>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <div class="row">
+      <!-- Total User -->
+      <div class="col-lg-3 col-6">
+        <div class="small-box bg-info">
+          <div class="inner">
+            <h3>{{ total_users }}</h3>
+            <p>Total User</p>
+          </div>
+          <div class="icon">
+            <i class="fa fa-users"></i>
+          </div>
+          <a href="user_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+      </div>
+
+      <!-- Enroll Course -->
+      <div class="col-lg-3 col-6">
+        <div class="small-box bg-success">
+          <div class="inner">
+            <h3>{{ total_enroll }}</h3>
+            <p>Enroll Course</p>
+          </div>
+          <div class="icon">
+            <i class="fa fa-book"></i>
+          </div>
+          <a href="enroll_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+      </div>
+
+      <!-- Quiz -->
+      <div class="col-lg-3 col-6">
+        <div class="small-box bg-danger">
+          <div class="inner">
+            <h3>{{ total_quiz }}</h3>
+            <p>Quiz</p>
+          </div>
+          <div class="icon">
+            <i class="fas fa-window-restore"></i>
+          </div>
+          <a href="quiz_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+      </div>
+
+      <!-- Admin -->
+      <div class="col-lg-3 col-6">
+        <div class="small-box bg-warning">
+          <div class="inner">
+            <h3>{{ total_instructor }}</h3>
+            <p>Total Instructor</p>
+          </div>
+          <div class="icon">
+            <i class="fa fa-user"></i>
+          </div>
+          <a href="instructor_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Highcharts container -->
+    <figure class="highcharts-figure" style="margin-top: 3%;">
+      <div id="container"></div>
+      <p class="highcharts-description">
+        .
+      </p>
+    </figure>
+
+    <!-- Highcharts scripts -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/data.js"></script>
+    <script src="https://code.highcharts.com/modules/drilldown.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+
+    <!-- Create the chart -->
+    <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+      Highcharts.chart('container', {
+        chart: {
+          type: 'column'
+        },
+        title: {
+          align: 'center',
+          text: 'จำนวนการเข้าเรียนแต่ละวิชา'
+        },
+        subtitle: {
+          align: 'center',
+          text: 'นับจำนวนแยกตามรายวิชา(มากไปน้อย)'
+        },
+        accessibility: {
+          announceNewData: {
+            enabled: true
+          }
+        },
+        xAxis: {
+          type: 'category'
+        },
+        yAxis: {
+          title: {
+            text: 'จำนวนการเข้าเรียน'
+          }
+        },
+        legend: {
+          enabled: false
+        },
+        plotOptions: {
+          series: {
+            borderWidth: 0,
+            dataLabels: {
+              enabled: true,
+              format: '<span style="color:blue">{point.y} รายการ</span>'
+            }
+          }
+        },
+        tooltip: {
+          headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
+          pointFormat: '<span style="color:{point.color}">{point.name}</span>: ' +
+            '<b>{point.y} รายการ</b> of total<br/>'
+        },
+        series: [{
+          name: 'จำนวนการเข้าเรียนวิชา',
+          colorByPoint: true,
+          data: {{ chart_enroll|tojson|safe }},
+        }],
+      });
+    });
+  </script>
+  </div>
+</div>
+
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends 'base_dashboard.html' %}
+{% block title %}Insert Category{% endblock %}
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>จัดการข้อมูลหมวดหมู่/Category</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">ฟอร์มเพิ่มข้อมูล</h3>
+            </div>
+            <div class="card-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                    <script type="text/javascript">
+                        document.addEventListener("DOMContentLoaded", function () {
+                            Swal.fire({
+                                title: "{{ message }}",
+                                icon: "{{ category }}",
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = "{{ url_for('categoty_table') }}";
+                                }
+                            });
+                        });
+                    </script>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% endwith %}
+                <form method="post" action="{{ url_for('insert_category') }}" enctype="multipart/form-data" id="profileForm">
+                    <div class="form-group row">
+                        <label for="icon" class="col-sm-2 col-form-label">Icon</label>
+                        <div class="col-sm-3">
+                            <input type="text" class="form-control" id="icon" placeholder="Enter code icon"
+                                name="icon">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="name" class="col-sm-2 col-form-label">Name</label>
+                        <div class="col-sm-3">
+                            <input type="text" class="form-control" id="name" placeholder="Enter Name"
+                                name="name">
+                        </div>
+                    </div>                    
+                    <div class="form-group row">
+                        <div class="col-sm-10 offset-sm-2">
+                            <button type="submit" class="btn btn-success">Add Category</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

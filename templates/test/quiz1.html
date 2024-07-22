@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Watch - {{ video.title }}{% endblock %}
+{% block content %}
+
+<!-- NAVBAR
+    ================================================== -->
+<header class="bg-white border-bottom py-3 header-fixed">
+    <div class="px-5 px-lg-8 w-100">
+        <div class="d-md-flex align-items-center">
+            <!-- Brand -->
+            <a class="navbar-brand mb-2 mb-md-0" href="{{ url_for('home') }}">
+                <img src="{{ url_for('static', filename='img/logo/logo POP2.png') }}" class="navbar-brand-img"
+                    alt="...">
+            </a>
+
+            <!-- Lesson Title -->
+            {% if video %}
+            <div class="mx-auto mb-5 mb-md-0">
+                <h3 class="mb-0 line-clamp-2 ms-wd-3">{{ video.category_name }}: {{ video.title }}</h3>
+            </div>
+            {% else %}
+            <p>Quiz not found.</p>
+            {% endif %}
+
+            <!-- Back to Course -->
+            <a href="{{ url_for('course_details', slug=video.slug) }}"
+                class="btn btn-sm btn-primary ms-md-6 px-6 mb-3 mb-md-0 flex-shrink-0">Back to Course</a>
+        </div>
+    </div>
+</header>
+
+<!-- COURSE
+    ================================================== -->
+<div class="mt-15 mt-md-11 pt-md-3">
+    {% include 'components/sidebar-quiz_video.html' %}
+    <div class="container">
+        <div class="row mb-11">
+            <div class="col-lg-11 col-wd-12 ms-lg-6 pt-11 pt-lg-8">
+                <section>
+                    {% if questions %}
+                    <div style="font-size: 30px;">
+                        <b>Quiz Title: {{ questions[0].quiz_name }}</b>
+                        <br>
+                    </div>
+                    
+                    <form id="quizform" action="/submit" method="POST"
+                        style="height: 2.5rem; font-size: 1rem; left: 20px;">
+                        {% for question in questions %}
+                        <div style="font-size: 20px; margin-top: 1rem;">
+                            <b>Question: {{ question.question_name }}</b>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="question_{{ question.question_id }}"
+                                id="choice_a_{{ question.question_id }}" value="choice_a" required>
+                            <label class="form-check-label" for="choice_a_{{ question.question_id }}">
+                                {{ question.choice_a }}
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="question_{{ question.question_id }}"
+                                id="choice_b_{{ question.question_id }}" value="choice_b">
+                            <label class="form-check-label" for="choice_b_{{ question.question_id }}">
+                                {{ question.choice_b }}
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="question_{{ question.question_id }}"
+                                id="choice_c_{{ question.question_id }}" value="choice_c">
+                            <label class="form-check-label" for="choice_c_{{ question.question_id }}">
+                                {{ question.choice_c }}
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="question_{{ question.question_id }}"
+                                id="choice_d_{{ question.question_id }}" value="choice_d">
+                            <label class="form-check-label" for="choice_d_{{ question.question_id }}">
+                                {{ question.choice_d }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                        
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-outline-secondary px-5 col-4 ">Submit</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <p>No questions found.</p>
+                    {% endif %}
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

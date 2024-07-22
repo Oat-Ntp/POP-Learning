@@ -1,0 +1,167 @@
+{% extends 'base_dashboard.html' %}
+
+{% block title %}Course Updated{% endblock %}
+
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper" style="min-height: 1416px;">
+
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>Updated Course</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="content">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card card">
+                    <div class="card-header">
+                        <h3 class="card-title">ฟอร์มอัปเดตคอร์สเรียน/Course</h3>
+                        <div class="card-tools">
+                            <button type="button" class="btn btn-tool" data-card-widget="collapse" title="Collapse">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body" style="display: block;">
+                        <form method="post" action="{{ url_for('updated_course') }}" enctype="multipart/form-data">
+                            <input type="hidden" id="id" name="id" value="{{ course[0] }}">
+
+                            <!-- Featured image -->
+                            <div class="form-group row">
+                                <label for="featured_image" class="col-sm-2 col-form-label">Featured image:</label>
+                                <div class="col-sm-3">
+                                    <input type="file" class="form-control" id="featured_image" name="featured_image"
+                                        value="{{ course[1] }}">
+                                </div>
+                            </div>
+
+                            <!-- Featured video -->
+                            <div class="form-group row">
+                                <label for="featured_video" class="col-sm-2 col-form-label">Featured video:</label>
+                                <div class="col-sm-2">
+                                    <input type="text" class="form-control" id="featured_video" name="featured_video"
+                                        value="{{ course[2] }}">
+                                </div>
+                            </div>
+
+                            <!-- Title -->
+                            <div class="form-group row">
+                                <label for="title" class="col-sm-2 col-form-label">Title:</label>
+                                <div class="col-sm-2">
+                                    <input type="text" class="form-control" id="title" name="title"
+                                        value="{{ course[3] }}">
+                                </div>
+                            </div>
+
+                            <!-- Instructor -->
+                            <div class="form-group row">
+                                <label for="instructor_id" class="col-sm-2 col-form-label">Instructor:</label>
+                                <div class="col-sm-3">
+                                    <select id="instructor_id" class="form-control custom-select" name="instructor_id">
+                                        <option selected="" disabled="">Select instructor</option>
+                                        {% for instructor in instructor %}
+                                        <option value="{{ instructor[0] }}"{% if course[5] == instructor[0] %} selected {% endif %}>{{ instructor[1] }} {{ instructor[2] }}
+                                        </option> 
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="category_id" class="col-sm-2 col-form-label">Category:</label>
+                                <div class="col-sm-3">
+                                    <select id="category_id" class="form-control custom-select" name="category_id">
+                                        <option selected disabled>Select category</option>
+                                        {% for category in categories %}
+                                            <option value="{{ category[0] }}"{% if course[6] == category[0] %} selected {% endif %}>{{ category[2] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+
+
+                            <!-- Course Description -->
+                            <div class="form-group row">
+                                <label for="description" class="col-sm-2 col-form-label">Course Description:</label>
+                                <div class="col-sm-4">
+                                    <textarea id="description" class="form-control" rows="5"
+                                        name="description">{{ course[7] }}</textarea>
+                                </div>
+                            </div>
+
+                            <!-- Price -->                           
+
+                            <!-- Language -->
+                            <div class="form-group row">
+                                <label for="language" class="col-sm-2 col-form-label">Language:</label>
+                                <div class="col-sm-1">
+                                    <input type="text" id="language" class="form-control" name="language"
+                                        value="{{ course[8] }}">
+                                </div>
+                            </div>
+
+                            <!-- Deadline -->
+                            <div class="form-group row">
+                                <label for="deadline" class="col-sm-2 col-form-label">Deadline:</label>
+                                <div class="col-sm-3">
+                                    <input type="text" id="deadline" class="form-control" name="deadline"
+                                        value="{{ course[9] }}">
+                                </div>
+                            </div>
+
+                            <!-- Slug -->
+                            <div class="form-group row">
+                                <label for="slug" class="col-sm-2 col-form-label">Slug:</label>
+                                <div class="col-sm-3">
+                                    <input type="text" id="slug" class="form-control" name="slug"
+                                        value="{{ course[10] }}">
+                                </div>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="form-group row">
+                                <label for="status" class="col-sm-2 col-form-label">Status:</label>
+                                <div class="col-sm-3">
+                                    <select id="status" class="form-control custom-select" name="status">
+                                        <option selected disabled>Select Status</option>
+                                        <option value="PUBLISH" {% if course[11] == 'PUBLISH' %} selected {% endif %}>
+                                            PUBLISH</option>
+                                        <option value="DRAFT" {% if course[11] == 'DRAFT' %} selected {% endif %}>DRAFT
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Certificate -->
+                            <div class="form-group row">
+                                <label for="certificate" class="col-sm-2 col-form-label">Certificate:</label>
+                                <div class="col-sm-1">
+                                    <input type="text" id="certificate" class="form-control" name="certificate"
+                                        value="{{ course[12] }}">
+                                </div>
+                            </div>
+
+                            <!-- Action buttons -->
+                            <div class="col-12">
+                                <a href="/course_table" class="btn btn-secondary">Cancel</a>
+                                <input type="submit" value="Update Course" class="btn btn-success float-right">
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

@@ -1,0 +1,10 @@
+blinker
+click
+colorama
+flask
+flask_session
+flask_login
+itsdangerous
+jinja2
+markupsafe
+werkzeug

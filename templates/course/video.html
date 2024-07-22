@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% block title %}Watch - {{ video.title }}{% endblock %}
+{% block content %}
+
+<!-- NAVBAR
+    ================================================== -->
+<header class="bg-white py-3">
+    <div class="px-5 px-lg-8 w-100">
+        <div class="d-md-flex align-items-center">
+            <!-- Brand -->
+            <a class="navbar-brand mb-2 mb-md-0" href="{{ url_for('home') }}">
+                <img src="{{ url_for('static', filename='img/logo/logo POP2.png') }}" class="navbar-brand-img" alt="...">
+            </a>
+
+            <!-- Lesson Title -->
+            {% if video %}
+            <div class="mx-auto mb-5 mb-md-0">
+                <h3 class="mb-0 line-clamp-2 text-black">{{ video.category_name }}: {{ video.title }}</h3>
+            </div>
+            {% else %}
+            <p>Video not found.</p>
+            {% endif %}
+
+            <!-- Back to Course -->
+            <a href="{{ url_for('course_details', slug=video.slug) }}" class="btn btn-sm btn-orange ms-md-6 px-6 mb-3 mb-md-0 flex-shrink-0">Back to Course</a>
+        </div>
+    </div>
+</header>
+
+<div class="position-absolute right-0 left-0 top-0 bottom-0" style="margin-top: 5%;">
+    <div class="cs-parallax">
+        <div class="cs-parallax-layer" data-depth="0.1">
+            <img class="img-fluid" src="/static/img/parallax/layer-01.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.3">
+            <img class="img-fluid" src="/static/img/parallax/layer-02.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.2">
+            <img class="img-fluid" src="/static/img/parallax/layer-03.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.2">
+            <img class="img-fluid" src="/static/img/parallax/layer-04.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.4">
+            <img class="img-fluid" src="/static/img/parallax/layer-05.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.3">
+            <img class="img-fluid" src="/static/img/parallax/layer-06.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.2">
+            <img class="img-fluid" src="/static/img/parallax/layer-07.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.2">
+            <img class="img-fluid" src="/static/img/parallax/layer-08.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.4">
+            <img class="img-fluid" src="/static/img/parallax/layer-09.svg" alt="Layer">
+        </div>
+        <div class="cs-parallax-layer" data-depth="0.3">
+            <img class="img-fluid" src="/static/img/parallax/layer-10.svg" alt="Layer">
+        </div>
+    </div>
+</div>
+
+<!-- COURSE
+    ================================================== -->
+<div class="container container-wd">
+    <div class="row pt-8 pb-10">
+        <div class="col-lg-8">
+            <h2 class="font-size-xl mb-6">
+                {{ video.video_title }}
+            </h2>
+
+            <div class="embed-responsive embed-responsive-16by9">
+                <div id="player" class="embed-responsive-item"></div>
+            </div>
+
+            <div class="progress" style="margin-top: 1%;">
+                <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+            </div>
+
+            <div class="d-flex align-items-center mb-4">
+                <label for="volume-slider" class="me-2">Volume:</label>
+                <input id="volume-slider" type="range" min="0" max="100" value="50" class="me-2">
+            
+                <div class="ms-auto">
+                    <button onclick="watchAgain()" class="btn btn-outline-blue btn-sm d-flex align-items-center btn-block mw-md-280p justify-content-center mt-0">
+                        Watch Again
+                    </button>
+                </div>
+            </div>
+            
+            
+
+            <!-- Include SweetAlert library -->
+            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+            <script>
+            // This code loads the IFrame Player API code asynchronously.
+            var tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            var firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+            var player;
+            var hasWatchedVideo = false;
+            // ตรวจสอบว่า current_user มีค่าหรือไม่และเก็บไว้ใน userId
+            var userId = '{{ current_user.id if current_user.is_authenticated else '' | tojson | safe }}';
+
+            // ตรวจสอบว่า userId มีค่าหรือไม่
+            if (userId) {
+                // ดำเนินการต่อไปเมื่อมี userId ที่ถูกต้อง
+                console.log('User ID:', userId);
+
+                // เรียกใช้งาน YouTube API และคำสั่งอื่นๆ ที่ต้องการทำ
+                var tag = document.createElement('script');
+                tag.src = "https://www.youtube.com/iframe_api";
+                var firstScriptTag = document.getElementsByTagName('script')[0];
+                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+                var player;
+                var hasWatchedVideo = false;
+
+                function onYouTubeIframeAPIReady() {
+                    player = new YT.Player('player', {
+                        height: '100%',
+                        width: '100%',
+                        videoId: '{{ video.youtube_link }}',
+                        playerVars: {
+                            'controls': 0,
+                            'disablekb': 1,
+                            'rel': 0,
+                            'modestbranding': 1,
+                            'start': getStartPoint()
+                        },
+                        events: {
+                            'onStateChange': onPlayerStateChange,
+                            'onReady': onPlayerReady
+                        }
+                    });
+                }
+
+                function onPlayerReady(event) {
+                    var savedTime = localStorage.getItem('videoTime_' + userId + '_{{ video.youtube_link }}');
+                    if (savedTime) {
+                        player.seekTo(parseFloat(savedTime));
+                    }
+                    setInterval(updateProgressBar, 1000);
+
+                    var volumeSlider = document.getElementById('volume-slider');
+                    volumeSlider.addEventListener('input', function() {
+                        player.setVolume(volumeSlider.value);
+                    });
+                }
+
+                function onPlayerStateChange(event) {
+                    if (event.data == YT.PlayerState.ENDED) {
+                        hasWatchedVideo = true;
+                        document.getElementById('progress-bar').style.width = '100%';
+                        document.getElementById('progress-bar').textContent = '100%';
+                        document.getElementById('progress-bar').classList.add('bg-success');
+                        Swal.fire({
+                            title: 'Video Complete!',
+                            text: 'You have finished watching the video. You can now proceed or watch again.',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        });
+                        localStorage.removeItem('videoTime_' + userId + '_{{ video.youtube_link }}');
+                    }
+                }
+
+                function updateProgressBar() {
+                    if (player && player.getDuration) {
+                        var duration = player.getDuration();
+                        var currentTime = player.getCurrentTime();
+                        var percentage = (currentTime / duration) * 100;
+                        var progressBar = document.getElementById('progress-bar');
+                        progressBar.style.width = percentage + '%';
+                        progressBar.textContent = Math.floor(percentage) + '%';
+                        localStorage.setItem('videoTime_' + userId + '_{{ video.youtube_link }}', currentTime);
+                    }
+                }
+
+                function preventNavigation(event) {
+                    if (!hasWatchedVideo) {
+                        event.preventDefault();
+                        event.returnValue = 'You need to watch the entire video before leaving this page.';
+                    }
+                }
+
+                window.addEventListener('beforeunload', preventNavigation);
+
+                function getStartPoint() {
+                    var savedTime = localStorage.getItem('videoTime_' + userId + '_{{ video.youtube_link }}');
+                    return savedTime ? parseFloat(savedTime) : 0;
+                }
+
+                function watchAgain() {
+                    hasWatchedVideo = false;
+                    player.seekTo(0);
+                    player.playVideo();
+                    document.getElementById('progress-bar').style.width = '0%';
+                    document.getElementById('progress-bar').textContent = '0%';
+                    document.getElementById('progress-bar').classList.remove('bg-success');
+                    Swal.fire({
+                        title: 'Watch Again!',
+                        text: 'Enjoy watching the video again.',
+                        icon: 'info',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            } else {
+                console.error('User ID is undefined.');
+            }
+
+            </script>
+
+            <h3 class="text-white">Course Description</h3>
+            {% if video and video.video_description %}
+            <p class="mb-6 line-height-md">{{ video.video_description[:245] }}</p>
+
+            <p class="collapse mb-6 line-height-md" id="readcollapseExample">{{ video.video_description[245:3000] }}</p>
+            {% else %}
+            <p>Description not available.</p>
+            {% endif %}
+            <a class="text-teal read-more h6 d-inline-block mb-8" data-bs-toggle="collapse" href="#readcollapseExample"
+                role="button" aria-expanded="false" aria-controls="readcollapseExample">
+                <span class="d-inline-flex align-items-center more">
+                    Read More
+                    <span
+                        class="d-flex align-items-center justify-content-center bg-teal rounded-circle ms-2 p-2 w-26p">
+                        <i class="fas fa-plus font-size-10 text-white"></i>
+                    </span>
+                </span>
+                <span class="d-inline-flex align-items-center less">
+                    Read Less
+                    <span
+                        class="d-flex align-items-center justify-content-center bg-teal rounded-circle ms-2 p-2 w-26p">
+                        <i class="fas fa-minus font-size-10 text-white"></i>
+                    </span>
+                </span>
+            </a>
+
+            <div class="d-md-flex align-items-center justify-content-between">
+                <a href="#"
+                    class="btn btn-blue d-flex align-items-center mb-5 mb-md-0 btn-block mw-md-280p justify-content-center">
+                    <i class="fas fa-arrow-left font-size-xs"></i>
+                    <span class="ms-3">Previous</span>
+                </a>
+                <a href="#"
+                    class="btn btn-blue d-flex align-items-center btn-block mw-md-280p justify-content-center mt-0">
+                    <span class="me-3">Next</span>
+                    <i class="fas fa-arrow-right font-size-xs"></i>
+                </a>
+            </div>
+        </div>
+        {% include 'components/sidebar-quiz_video.html' %}
+    </div>
+</div>
+
+<style>
+.progress {
+    height: 20px;
+    margin-bottom: 20px;
+}
+.progress-bar {
+    background-color: #007bff;
+    transition: width 0.4s ease;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.progress-bar.bg-success {
+    background-color: #28a745 !important;
+}
+
+.embed-responsive {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    overflow: hidden;
+    padding-bottom: 56.25%;
+}
+.embed-responsive .embed-responsive-item,
+.embed-responsive iframe,
+.embed-responsive embed,
+.embed-responsive object,
+.embed-responsive video {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+</style>
+
+{% endblock %}

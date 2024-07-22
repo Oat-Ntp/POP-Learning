@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}Profile Update{% endblock %}
+{% block content %}
+{% include 'components/header.html' %}
+{% include 'components/modals.html' %}
+
+<!-- PAGE TITLE -->
+<header class="py-8 py-md-11" style="background-image: none;">
+    <div class="container text-center py-xl-2">
+        <h1 class="display-4 fw-semi-bold mb-0">Profile Update : {{ current_user.username }}</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb breadcrumb-scroll justify-content-center">
+                <li class="breadcrumb-item">
+                    <a class="text-gray-800" href="#">
+                        Home
+                    </a>
+                </li>
+                <li class="breadcrumb-item text-gray-800 active" aria-current="page">
+                    Profile Update
+                </li>
+            </ol>
+        </nav>
+    </div>
+</header>
+
+<!-- Card -->
+<div class="card" style="width: 80%; margin-left: 10%;">
+    <div class="card-body">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <ul class="flashes">
+            {% for category, message in messages %}
+            <!-- <li class="alert alert-{{ category }}">{{ message }}</li> -->
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
+        <form method="post" action="profile_update" id="profileForm" enctype="multipart/form-data">
+            <div class="row">
+                <div class="col">
+                    <div class="form-group mb-4">
+                        <label for="first_name">First name</label>
+                        <input type="text" class="form-control" id="first_name" placeholder="Enter First Name"
+                            name="first_name" value="{{ current_user.first_name }}">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group mb-4">
+                        <label for="last_name">Last name</label>
+                        <input type="text" class="form-control" id="last_name" placeholder="Enter Last Name"
+                            name="last_name" value="{{ current_user.last_name }}">
+                    </div>
+                </div>
+                <div class="w-100"></div>
+                <div class="col">
+                    <div class="form-group mb-4">
+                        <label for="username">Username</label>
+                        <input type="text" class="form-control" id="username" placeholder="Enter username"
+                            name="username" value="{{ current_user.username }}" readonly>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group mb-4">
+                        <label for="email">Email</label>
+                        <input type="email" class="form-control" id="email" placeholder="Enter email" name="email"
+                            value="{{ current_user.email }}" readonly>
+                    </div>
+                </div>
+                <div class="w-100"></div>
+                <div class="col-6">
+                    <div class="form-group mb-4">
+                        <label for="password">Password</label>
+                        <input type="password" class="form-control" id="password"
+                            placeholder="Fill Only If You Want To Change Password" name="password">
+                    </div>
+                </div>
+                {% if current_user.role == 'user' %}
+                <div class="col-6">
+                    <div class="form-group mb-4">
+                        <label for="userimage">Choose Images:</label>
+                        <input type="file" class="form-control" id="userimage" name="userimage">
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if current_user.role == 'admin' %}
+                <div class="col-6">
+                    <div class="form-group mb-4">
+                        <label for="adminimage">Choose Images:</label>
+                        <input type="file" class="form-control" id="adminimage" name="adminimage">
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if current_user.role == 'instructor' %}
+                <div class="col-6">
+                    <div class="form-group mb-4">
+                        <label for="instructorimage">Choose Images:</label>
+                        <input type="file" class="form-control" id="instructorimage" name="instructorimage">
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <button type="button" class="btn btn-primary" onclick="confirmUpdate()">Update Profile</button>
+        </form>
+    </div>
+</div>
+
+<script type="text/javascript">
+    function confirmUpdate() {
+        Swal.fire({
+            title: "Do you want to save the changes?",
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: "Save",
+            denyButtonText: `Don't save`
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('profileForm').submit();
+            } else if (result.isDenied) {
+                Swal.fire("Changes are not saved", "", "info");
+            }
+        });
+    }
+</script>
+
+{% include 'components/footer.html' %}
+{% endblock %}

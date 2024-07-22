@@ -1,0 +1,85 @@
+{% extends 'base_dashboard.html' %}
+{% block title %}Edit Quiz{% endblock %}
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>Edit Quiz</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Edit Quiz Form</h3>
+            </div>
+            <div class="card-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                    <script type="text/javascript">
+                        document.addEventListener("DOMContentLoaded", function () {
+                            Swal.fire({
+                                title: "{{ message }}",
+                                icon: "{{ category }}",
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = "{{ url_for('quiz_table') }}";
+                                }
+                            });
+                        });
+                    </script>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% endwith %}
+                <form method="post" action="{{ url_for('updated_quiz') }}" id="quizForm">
+                    <input type="hidden" id="quiz_id" name="quiz_id" value="{{ quiz[0] }}">
+                    <div id="quiz1">
+                        <div id="quiz1">
+                            <div class="form-group row">
+                                <label for="quiz_name" class="col-sm-2 col-form-label">ชื่อแบบทดสอบ :</label>
+                                <div class="col-4">
+                                    <input type="text" class="form-control" id="quiz_name" name="quiz_name"
+                                        placeholder="ชื่อแบบทดสอบ" value="{{ quiz[1] }}" required>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="lesson_id" class="col-sm-2 col-form-label">Lesson :</label>
+                                <div class="col-sm-3">
+                                    <select id="lesson_id" class="form-control custom-select" name="lesson_id">
+                                        <option selected="" disabled="">Select lesson</option>
+                                        {% for lesson in lesson %}
+                                        <option value="{{ lesson[0] }}"{% if quiz[2] == lesson[0] %} selected {% endif %}>{{ lesson[1] }} {{ lesson[2] }}
+                                        </option> 
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="passing_percentage" class="col-sm-2 col-form-label">เกณฑ์ผ่าน เช่น 50%</label>
+                                <div class="col-2">
+                                    <input type="number" class="form-control" id="passing_percentage" name="passing_percentage"
+                                        placeholder="0" value="{{ quiz[3] }}" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <div class="col-sm-10 offset-sm-2">
+                                <button type="submit" class="btn btn-primary" id="submitButton">Submit</button>
+                            </div>
+                        </div>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

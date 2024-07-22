@@ -1,0 +1,131 @@
+{% extends 'base_dashboard.html' %}
+{% block title %}Edit Admin{% endblock %}
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>จัดการข้อมูลผู้ดูแลระบบ/Admin</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">ฟอร์มแก้ไขข้อมูล</h3>
+            </div>
+            <div class="card-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <ul class="flashes">
+                    {% for category, message in messages %}
+                    <script type="text/javascript">
+                        Swal.fire({
+                            title: "{{ message }}",
+                            icon: "{{ category }}",
+                        });
+                    </script>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% endwith %}
+
+                <form method="post" action="{{ url_for('updated_admin') }}" enctype="multipart/form-data">
+                    <input type="hidden" id="id" name="id" value="{{ admin[0] }}">
+
+                    <div class="form-group row">
+                        <label for="first_name" class="col-sm-2 col-form-label">First name</label>
+                        <div class="col-sm-2">
+                            <input type="text" class="form-control" id="first_name" name="first_name"
+                                placeholder="Enter First Name" value="{{ admin[1] }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="last_name" class="col-sm-2 col-form-label">Last name</label>
+                        <div class="col-sm-2">
+                            <input type="text" class="form-control" id="last_name" name="last_name"
+                                placeholder="Enter Last Name" value="{{ admin[2] }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="username" class="col-sm-2 col-form-label">Username</label>
+                        <div class="col-sm-3">
+                            <input type="text" class="form-control" id="username" name="username"
+                                placeholder="Enter Username" value="{{ admin[3] }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="email" class="col-sm-2 col-form-label">Email</label>
+                        <div class="col-sm-3">
+                            <input type="email" class="form-control" id="email" name="email" placeholder="Enter Email"
+                                value="{{ admin[4] }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="tel" class="col-sm-2 col-form-label">เบอร์โทร (Telephone)</label>
+                        <div class="col-sm-2">
+                            <input type="text" class="form-control" id="tel" name="tel" placeholder="Enter Telephone"
+                                value="{{ admin[5] }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="birth" class="col-sm-2 col-form-label">Birth Day</label>
+                        <div class="col-sm-2">
+                            <input type="date" class="form-control" id="birth" name="birth"
+                                placeholder="Enter Birth Day" value="{{ admin[6] }}" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="gender" class="col-sm-2 col-form-label">Gender</label>
+                        <div class="col-sm-2">
+                            <select id="gender" name="gender" class="form-control form-select" aria-label="Gender select">
+                                <option disabled value="">--Please choose an option--</option>
+                                <option value="Male" {% if admin[8] == 'Male' %}selected{% endif %}>Male</option>
+                                <option value="Female" {% if admin[8] == 'Female' %}selected{% endif %}>Female</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="adminimage" class="col-sm-2 col-form-label">Choose Images:</label>
+                        <div class="col-sm-3">
+                            <input type="file" class="form-control" id="adminimage" name="adminimage">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col-sm-10 offset-sm-2">
+                            <button type="submit" class="btn btn-primary">Update Admin</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+<script>
+    $(document).ready(function () {
+        // File type validation
+        $("#fileInput").change(function () {
+            var fileLength = this.files.length;
+            var match = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
+            var i;
+            for (i = 0; i < fileLength; i++) {
+                var file = this.files[i];
+                var imagefile = file.type;
+                if (!((imagefile == match[0]) || (imagefile == match[1]) || (imagefile == match[2]) || (
+                        imagefile == match[3]))) {
+                    alert('Please select a valid image file (JPEG/JPG/PNG/GIF).');
+                    $("#fileInput").val('');
+                    return false;
+                }
+            }
+        });
+    });
+</script>
+
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}

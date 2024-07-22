@@ -1,0 +1,106 @@
+{% extends 'base_dashboard.html' %}
+{% block title %}Edit Quiz Video{% endblock %}
+{% block content %}
+{% include 'components/sidebar_dashboard.html' %}
+{% include 'components/control-sidebar_dashboard.html' %}
+
+<div class="content-wrapper">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1>จัดการข้อมูล Quiz</h1>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">ฟอร์มแก้ไขคลิปวีดีโอ</h3>
+            </div>
+            <div class="card-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <script type="text/javascript">
+                                document.addEventListener("DOMContentLoaded", function () {
+                                    Swal.fire({
+                                        title: "{{ message|escape }}",
+                                        icon: "{{ category|escape }}",
+                                    });
+                                });
+                            </script>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                <form method="post" action="{{ url_for('updated_quiz_video', id=quiz_video[0]) }}" id="quizForm" enctype="multipart/form-data">
+                    <input type="hidden" name="id" value="{{ quiz_video[0] }}">
+                    <div class="form-group row">
+                        <label for="title" class="col-sm-2 col-form-label">Title:</label>
+                        <div class="col-sm-3">
+                            <input type="text" class="form-control" id="title" name="title" value="{{ quiz_video[1] }}" placeholder="หัวข้อคลิป" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="youtube_link" class="col-sm-2 col-form-label">YouTube Link:</label>
+                        <div class="col-sm-3">
+                            <input type="text" class="form-control" id="youtube_link" name="youtube_link" value="{{ quiz_video[2] }}" placeholder="Link" required>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="description" class="col-sm-2 col-form-label">Description:</label>
+                        <div class="col-sm-4">
+                            <textarea class="form-control" id="description" name="description" rows="5" placeholder="คำอธิบาย" required>{{ quiz_video[3] }}</textarea>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="time_duration" class="col-sm-2 col-form-label">Time Duration:</label>
+                        <div class="col-sm-1">
+                            <input type="text" class="form-control" id="time_duration" name="time_duration" value="{{ quiz_video[4] }}" placeholder="Time">
+                            <font size="2" style="color: red;">* ระยะเวลาของวีดีโอ</font>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="preview" class="col-sm-2 col-form-label">Preview:</label>
+                        <div class="col-sm-3">
+                            <input type="checkbox" class="form-control-check-input" id="preview" name="preview" {% if quiz_video[5] %}checked{% endif %}>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="video_image" class="col-sm-2 col-form-label">Choose Images:</label>
+                        <div class="col-sm-3">
+                            <input type="file" class="form-control" id="video_image" name="video_image">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="quiz_id" class="col-sm-2 col-form-label">Quiz:</label>
+                        <div class="col-sm-3">
+                            <select class="form-control" id="quiz_id" name="quiz_id" required>
+                                <option selected disabled>Select Quiz</option>
+                                {% for quiz in quizzes %}
+                                    <option value="{{ quiz[0] }}" {% if quiz[0] == quiz_video[7] %}selected{% endif %}>
+                                        {{ quiz[1] }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <div class="col-sm-10 offset-sm-2">
+                            <button type="submit" class="btn btn-primary" id="submitButton">Submit</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
+<script>
+    document.getElementById('quizForm').addEventListener('submit', function() {
+        var previewCheckbox = document.getElementById('preview');
+        previewCheckbox.value = previewCheckbox.checked ? 1 : 0;
+    });
+</script>
+{% include 'components/footer_dashboard.html' %}
+{% endblock %}
