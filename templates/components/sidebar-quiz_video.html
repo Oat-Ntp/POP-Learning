@@ -61,7 +61,7 @@
                         <div class="d-flex align-items-center overflow-auto overflow-md-visible flex-shrink-all">
                             {% if quiz_video.question_count and quiz_video.question_count != '-' %}
                             <div class="badge text-black bg-orange-40 me-5 font-size-sm fw-normal py-2">
-                                {{ quiz_video.question_count }} questions
+                                {{ quiz_video.question_count }} questions  
                             </div>
                             {% endif %}
                             {% if quiz_video.time_duration and quiz_video.time_duration != '-' %}
@@ -69,7 +69,7 @@
                                 {{ quiz_video.time_duration }} min
                             </div>
                             {% endif %}
-                            {% if quiz_video.passed == 1 %}
+                            {% if quiz_video.passed ==  1 %}
                             <a href="" class="text-secondary d-flex">
                                 <!-- Icon -->
                                 <svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">

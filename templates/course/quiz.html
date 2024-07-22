@@ -129,43 +129,121 @@
 <script>
 
     var next_element = {{next_element|tojson}};
-    console.log('hello')
-    console.log(next_element)
+    var video = {{video|tojson}};
+
+    function finish_course(video){
+        $.ajax({
+            url: '/finish_course',
+            type: 'PATCH',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                course_id: video.id
+            }),
+            success: function(response) {
+                if ( !response.success){
+                    Swal.fire({
+                        title: 'Something Wrong!',
+                        text: `Please contact system admin.`,
+                        icon: 'error',
+                        confirmButtonText: 'Close',
+                    })
+                }
+
+                if (response.passed) {
+                    Swal.fire({
+                        title: '🎉🎉 Congratulations!! 🎉🎉',
+                        text: 'You have finished this course!',
+                        iconHtml: `<div>🎉</div>`,
+                        html: `<p>You have passed all the test!</p>
+                                <a href="${response.certificate_url}" download="certificate.png">
+                                    <img src="${response.certificate_url}" alt="Certificate" style="width:100%;max-width:1400px;"/>
+                                </a>
+                                <div class="d-flex justify-content-end mt-4">
+                                    <a id="downloadCertificateLink" href="${response.certificate_url}" download="certificate.png" class="btn btn-success mx-2 btn-sm">
+                                        Download Certificate
+                                    </a>
+                                    <button id="closeModalBtn" class="btn btn-secondary mx-2 btn-sm">
+                                        Close
+                                    </button>
+                                </div>
+                            `,
+                        showConfirmButton: false,
+                        width: '700px',
+                        didRender: (modal) => {
+                            document.getElementById('closeModalBtn').addEventListener('click', function() {
+                                Swal.close();
+                            });
+                        }
+                    });
+                }else{
+                    Swal.fire({
+                        title: 'Missing some testing result!!',
+                        text: 'You did not pass all the test. Please try again.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Something Wrong!',
+                    text: `'Error:': ${error}'}`,
+                    icon: 'error',
+                    confirmButtonText: 'Close',
+                })
+            }
+        });
+    }
 
     document.getElementById('quizform').addEventListener('submit', function(e) {
         e.preventDefault(); // ป้องกันการส่งแบบฟอร์มเดิม
         
         // เก็บข้อมูลฟอร์ม
         const formData = new FormData(e.target);
-        debugger
-    
         // ส่งข้อมูลฟอร์มไปยังเซิร์ฟเวอร์ด้วย fetch
         fetch(e.target.action, {
             method: 'POST',
             body: formData
         })
-        .then(response => response.json())
-        .then(data => {
-            // แสดง SweetAlert2 พร้อมกับคะแนนและสถานะผ่าน/ไม่ผ่าน
-            Swal.fire({
-                title: 'ผลการทำข้อสอบ!',
-                text: `คุณได้คะแนน: ${data.score} คะแนน\n${data.passed ? '(ผ่าน)' : '(ไม่ผ่าน)'}`,
-                icon: data.passed ? 'success' : 'error',
-                confirmButtonText: 'OK'
-            }).then((result) => {
-                
-                if (result.isConfirmed) {
-                    if (next_element.element_type == 'video'){
-                        var nextPageUrl = "{{ url_for('watch_video', slug=video.slug, video_id=next_element.element_id) }}";
-                    } else if (next_element.element_type == 'quiz'){
-                        var nextPageUrl = "{{ url_for('take_quiz', slug=video.slug, quiz_id=next_element.element_id) }}";
-                    }else{
-                        alert('invalid element type')
+        .then(response  => response.json())
+        .then(data  => {
+            if (data.passed && next_element.element_id == null){
+                // is last post-test
+                finish_course(video)
+            }
+            else if(data.passed){
+                Swal.fire({
+                    title: 'ผลการทำข้อสอบ!',
+                    text: `คุณได้คะแนน: ${data.score} คะแนน\n${data.passed ? '(ผ่าน)' : '(ไม่ผ่าน)'}`,
+                    icon: 'success',
+                    confirmButtonText: 'OK',
+                }).then((result) => {
+                    
+                    if (result.isConfirmed) {
+                        if (next_element.element_type == 'video'){
+                            var nextPageUrl = `{{ url_for('watch_video', slug='__SLUG__', video_id='__ELEMENT_ID__') }}`
+                                    .replace('__SLUG__', video.slug)
+                                    .replace('__ELEMENT_ID__', next_element.element_id);;
+                        } else if (next_element.element_type == 'quiz'){
+                            var nextPageUrl = "{{ url_for('take_quiz', slug='__SLUG__', quiz_id='__ELEMENT_ID__') }}"
+                                    .replace('__SLUG__', video.slug)
+                                    .replace('__ELEMENT_ID__', next_element.element_id);;
+                        }else{
+                            alert('invalid element type')
+                        }
+                        window.location.href = nextPageUrl;
                     }
-                    debugger
-                    window.location.href = nextPageUrl;
-                }
-            });
+                });
+
+            }else{
+                Swal.fire({
+                    title: 'ผลการทำข้อสอบ!',
+                    text: `คุณได้คะแนน: ${data.score} คะแนน\n${data.passed ? '(ผ่าน)' : '(ไม่ผ่าน)'}`,
+                    icon: 'error',
+                    confirmButtonText: 'OK',
+                })
+            }
         })
         .catch(error => {
             console.error('เกิดข้อผิดพลาด:', error);

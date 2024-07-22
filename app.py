@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, current_app, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, current_app, jsonify, send_file
+from PIL import Image, ImageDraw, ImageFont
 from flask_mysqldb import MySQL
 from flask_session import Session
 import MySQLdb.cursors
@@ -9,6 +10,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.utils import secure_filename
 from jinja2 import Environment
 import os
+import io
 from operator import itemgetter
 
 
@@ -21,7 +23,7 @@ app.secret_key = 'your secret key'
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'password'
+app.config['MYSQL_PASSWORD'] = ''
 app.config['MYSQL_DB'] = 'pop_learning'
 
 mysql = MySQL(app)
@@ -3338,6 +3340,7 @@ def course_details(slug):
     user_enroll_count = 0
     check_enroll = False
     questions = []
+    enroll_data = ()
 
     try:
         with mysql.connection.cursor() as cur:
@@ -3372,12 +3375,19 @@ def course_details(slug):
                 user_id = current_user.id if current_user.is_authenticated else None
                 if user_id:
                     cur.execute("""
-                        SELECT 1
+                        SELECT 
+                            user_id,
+                            course_id,
+                            enroll_date,	
+                            is_completed,
+                            enroll_id,
+                            completed_at  
                         FROM user_enroll
                         WHERE user_id = %s AND course_id = %s
                     """, [user_id, course_id])
-                    enrollment = cur.fetchone()
-                    check_enroll = enrollment is not None
+                    enroll_data = cur.fetchone()
+                    check_enroll = enroll_data is not None
+                    
 
                 cur.execute("SELECT l.lesson_id, l.lesson_name FROM lesson l WHERE l.course_id = %s", [course_id])
                 lesson_names = cur.fetchall()
@@ -3525,7 +3535,8 @@ def course_details(slug):
                            limit=len(questions_data),
                            user_image_url=user_image_url,
                            admin_image_url=admin_image_url,
-                           instructor_image_url=instructor_image_url)
+                           instructor_image_url=instructor_image_url,
+                           enroll_data=enroll_data)
 
 
 
@@ -3592,6 +3603,7 @@ class Quiz_video:
 
 @app.route('/quiz/<slug>/<quiz_id>')
 def take_quiz(slug, quiz_id):
+    user_id = current_user.id if current_user.is_authenticated else None
     try:
         # Connect to MySQL
         cur = mysql.connection.cursor()
@@ -3637,6 +3649,7 @@ def take_quiz(slug, quiz_id):
             # Extract course ID and lesson ID from the fetched row
             course_id = video_row[0]
             lesson_id = video_row[11]  # Ensure lesson_id is correctly assigned
+            quiz_limit = 15
 
             # Fetch lessons associated with this course
             cur.execute("SELECT l.lesson_id, l.lesson_name FROM lesson l WHERE l.course_id = %s", [course_id])
@@ -3647,21 +3660,57 @@ def take_quiz(slug, quiz_id):
                 current_lesson_id = lesson[0]
                 # Fetch quizzes associated with each lesson
                 cur.execute("""
-                    SELECT qv.lesson_id, q.quiz_id, q.quiz_name, qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, COUNT(que.question_id) AS question_count, COALESCE(quiz_attempts.passed, 0) AS passed
+                WITH latest_quiz_attempts AS (
+                    SELECT 
+                        quiz_id, 
+                        MAX(attempt_id) AS latest_attempt_id
+                    FROM quiz_attempts
+                    WHERE user_id = %s
+                    GROUP BY quiz_id
+                ), lastest_video_attemts as (
+                    SELECT 
+                        video_id, 
+                        MAX(attempt_id) AS latest_attempt_id
+                    FROM video_attempts
+                    WHERE user_id = %s
+                    GROUP BY video_id
+                )         
+                SELECT qv.lesson_id, q.quiz_id, q.quiz_name, qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, COUNT(que.question_id) AS question_count, COALESCE(quiz_attempts.passed, va.passed, 0) AS passed
                 FROM quiz_video qv
                 LEFT JOIN question que ON qv.quiz_id = que.quiz_id
                 LEFT JOIN quiz q ON q.quiz_id = qv.quiz_id
                 LEFT JOIN (
-                    SELECT quiz_id, passed
-                    FROM quiz_attempts
-                    WHERE user_id  -- Replace with actual user_id or session user_id
+                    SELECT qa.quiz_id, qa.passed
+                    FROM quiz_attempts qa
+                    JOIN latest_quiz_attempts lqa
+                        on lqa.latest_attempt_id = qa.attempt_id
                 ) quiz_attempts ON q.quiz_id = quiz_attempts.quiz_id
+                LEFT JOIN (
+                    select va.video_id, va.passed from video_attempts va
+                    join lastest_video_attemts lva
+                        on lva.latest_attempt_id = va.attempt_id
+                ) as va on va.video_id = qv.video_id 
                 WHERE qv.lesson_id = %s
-                GROUP BY qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, q.quiz_id, q.quiz_name, quiz_attempts.passed;
-                """, [current_lesson_id])
+                GROUP BY qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, q.quiz_id, q.quiz_name, quiz_attempts.passed, va.passed;
+                """, [user_id, user_id, current_lesson_id])
                 quizzes = cur.fetchall()
 
-                quizzes_data = [{'lesson_id': q[0], 'quiz_id': q[1], 'quiz_name': q[2], 'video_id': q[3], 'title': q[4], 'youtube_link': q[5], 'description': q[6], 'time_duration': q[7], 'preview': q[8], 'video_image': q[9], 'question_count': q[10], 'passed': q[11]} for q in quizzes]
+                quizzes_data = [
+                    {
+                        'lesson_id': q[0], 
+                        'quiz_id': q[1], 
+                        'quiz_name': q[2], 
+                        'video_id': q[3], 
+                        'title': q[4], 
+                        'youtube_link': q[5], 
+                        'description': q[6], 
+                        'time_duration': q[7], 
+                        'preview': q[8], 
+                        'video_image': q[9], 
+                        'question_count': q[10] if q[10] < quiz_limit else quiz_limit, 
+                        'passed': q[11]
+                    } for q in quizzes
+                ]
 
                 lesson_data = {
                     'lesson_id': current_lesson_id, 
@@ -3728,6 +3777,7 @@ def take_quiz(slug, quiz_id):
             'element_type': video_row[13],
         } 
     else:
+        next_element = None
         video = None
 
     if 'last_visited_pages' not in session:
@@ -3742,7 +3792,6 @@ def take_quiz(slug, quiz_id):
         questions=questions_data, 
         quiz_id=quiz_id, 
         lesson_id=lesson_id, 
-        limit=len(questions_data), 
         passing_score=passing_score,
         next_element=next_element
     )
@@ -3826,36 +3875,227 @@ def submit_quiz():
     return jsonify(score=score, passed=passed)
 
 
+@app.route('/generate_certificate', methods=['GET'])
+def generate_certificate():
+    
+    user_id = current_user.id if current_user.is_authenticated else None
+    enroll_id = request.args.get('enroll_id')
+    
+
+    #fetch certificate data
+        # Connect to MySQL and get passing score
+    cur = mysql.connection.cursor()
+
+    certificate_data_sql = """
+        SELECT 
+            c.title ,
+            ue.enroll_id as cer_number,
+            u.first_name ,
+            u.last_name ,
+            ue.completed_at 
+        FROM user_enroll ue 
+        JOIN `user` u 
+            on ue.user_id = u.id
+        JOIN courses c 
+            on c.id = ue.course_id 
+        where ue.enroll_id = %s
+        and ue.user_id = %s
+        and ue.is_completed is true
+    """
+    cur.execute(certificate_data_sql, (enroll_id, user_id))
+    certificate_data = cur.fetchone()
+
+    if not certificate_data:
+        jsonify(success=False, error=f'Missing certificate data for user: {user_id}')
+
+    user_name = f"{certificate_data[2]} {certificate_data[3]}"  # first_name
+    course_name = certificate_data[0]  # title
+    date = certificate_data[4].strftime('%d-%m-%Y')  # completed_at
+    certificate_number = str(certificate_data[1])  # cer_number
+    
+    cur.close()  # Close the cursor
+
+    # Load the certificate template
+    template_path = 'static/img/certificate/certificate_template.png'
+    template = Image.open(template_path)
+    draw = ImageDraw.Draw(template)
+    # Define font and text position
+    font_path = 'static/fonts/great_vibes/GreatVibes-Regular.ttf'  # Path to your font file
+    font_large = ImageFont.truetype(font_path, 140)
+    font = ImageFont.truetype(font_path, 50)
+
+
+    # Get image dimensions
+    image_width, image_height = template.size
+    
+    # Helper function to center text
+    def draw_centered_text(draw, text, position_y, font, fill='black'):
+        text_bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        position_x = (image_width - text_width) / 2
+        draw.text((position_x, position_y), text, font=font, fill=fill)
+
+    def draw_centered_text_adv(draw, text, position, font, fill='black', justify='center'):
+        text_bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        position_x = position[0]
+        if justify == 'center': 
+            position_x = position_x - text_width
+        draw.text((position_x, position[1]), text, font=font, fill=fill)
+    
+    
+    # Position for user's name
+    name_position_y = 700  # Adjust based on your template
+    # Position for course name
+    course_position = (825, 1075)  # Adjust based on your template
+    # Position for date
+    date_position = ( 1420, 1075)  # Adjust based on your template
+    # Position for certificate number
+    certificate_number_position = (1725, 210)  # Adjust based on your template
+
+    # Draw the name, course name, date, and certificate number on the template
+    draw_centered_text(draw, user_name, name_position_y, font_large)
+    draw_centered_text_adv(draw, course_name, course_position , font)
+    draw_centered_text_adv(draw, date, date_position , font)
+    draw_centered_text_adv(draw, certificate_number, certificate_number_position , font, justify='left')
+
+    # Save the certificate to a BytesIO object
+    certificate_io = io.BytesIO()
+    template.save(certificate_io, 'PNG')
+    certificate_io.seek(0)
+
+    return send_file(certificate_io, mimetype='image/png', as_attachment=True, download_name='certificate.png')
+
+
+@app.route('/finish_course', methods=['PATCH'])
+def finish_course():
+    # Extract data from the form
+    data = request.get_json()
+    course_id = data.get('course_id')
+    user_id = current_user.id if current_user.is_authenticated else None
+    
+
+
+    # Connect to MySQL and get passing score
+    cur = mysql.connection.cursor()
+
+    check_pass_all_lesson_sql = """
+        WITH latest_quiz_attempts AS (
+            SELECT 
+                quiz_id, 
+                MAX(attempt_id) AS latest_attempt_id
+            FROM quiz_attempts
+            WHERE user_id = %s -- ใส่ ID ของผู้ใช้ที่ล็อกอินอยู่
+            GROUP BY quiz_id
+        )  
+        SELECT 
+            c.slug ,
+            c.certificate,
+            l.lesson_name,
+            q.quiz_name ,
+            CASE WHEN lq.passed = 1 THEN true ELSE false END AS passed
+        FROM courses c
+        JOIN lesson l 
+            on l.course_id = c.id
+        JOIN quiz q 
+            ON q.lesson_id  = l.lesson_id 
+        LEFT JOIN (
+            SELECT qa.quiz_id, qa.passed
+            FROM quiz_attempts qa
+            JOIN latest_quiz_attempts lqa
+                on lqa.latest_attempt_id = qa.attempt_id
+        ) lq ON lq.quiz_id = q.quiz_id
+        WHERE c.id = %s
+        and q.quiz_name = 'Post-Test'
+    """
+    cur.execute(check_pass_all_lesson_sql, (user_id, course_id))
+    test_results = cur.fetchall()
+
+    is_pass_all_test = True
+    
+    for test_result in test_results:
+        is_pass = test_result[4]
+        if(not is_pass):
+            is_pass_all_test = False
+            break
+
+    if(is_pass_all_test):
+        try:
+            cur.execute("""
+                UPDATE pop_learning.user_enroll 
+                set is_completed = true , completed_at = CURRENT_TIMESTAMP
+                where user_id = %s and course_id = %s
+            """, ( user_id, course_id ))
+            mysql.connection.commit()
+
+            # Fetch user name and course name from database
+            cur.execute("SELECT enroll_id FROM user_enroll WHERE user_id = %s", (user_id,))
+            enroll_id = cur.fetchone()[0]
+
+
+            # URL for generating the certificate with the user's name and course name
+            certificate_url = url_for('generate_certificate', enroll_id=enroll_id, _external=True)
+            
+        except Exception as e:
+            print(f"Error while updating course complete status: {e}")
+            mysql.connection.rollback()
+            return jsonify(success=False, error=str(e))
+    else:
+        return jsonify(success=True, passed=False)
+
+    cur.close()  # Close the cursor
+
+    # Return the original score and pass status as JSON
+    return jsonify(success=True, passed=is_pass_all_test, certificate_url=certificate_url)
+
+
 
 
 
 @app.route('/video/<slug>/<video_id>')
 def watch_video(slug, video_id):
-    user_id = session.get('user_id')
+    user_id = current_user.id if current_user.is_authenticated else None
     try:
         cur = mysql.connection.cursor()
 
         # Fetch video details based on video ID and course slug
         cur.execute("""
-            SELECT 
-                c.id, c.title,
-                cat.name AS category_name,
-                c.slug,
-                qv.video_id,
-                qv.title AS video_title,
-                qv.youtube_link,
-                qv.description AS video_description,
-                qv.time_duration,
-                qv.video_image,
-                qv.quiz_id,
-                l.lesson_id  -- เพิ่ม lesson_id ที่นี่
-            FROM courses c
-            JOIN categories cat ON c.category_id = cat.id
-            JOIN lesson l ON l.course_id = c.id
-            JOIN quiz_video qv ON qv.lesson_id = l.lesson_id
-            LEFT JOIN quiz q ON qv.quiz_id = q.quiz_id
-            WHERE c.slug = %s AND qv.video_id = %s
-        """, (slug, video_id))
+            with all_quiz as (
+                SELECT 
+                    c.id, c.title,
+                    cat.name AS category_name,
+                    c.slug,
+                    qv.video_id,
+                    qv.title AS video_title,
+                    qv.youtube_link,
+                    qv.description AS video_description,
+                    qv.time_duration,
+                    qv.video_image,
+                    qv.quiz_id,
+                    l.lesson_id,  -- Add lesson_id here
+                    LEAD( 
+                        CASE WHEN qv.quiz_id is not null 
+                        then qv.quiz_id else qv.video_id 
+                        end 
+                    ) over () as next_element_id,
+                    LEAD( 
+                        CASE WHEN qv.quiz_id is not null 
+                        then 'quiz' else 'video'
+                        end 
+                    ) over () as next_element_type,
+                    va.passed
+                FROM courses c
+                JOIN categories cat ON c.category_id = cat.id
+                JOIN lesson l ON l.course_id = c.id
+                JOIN quiz_video qv ON qv.lesson_id = l.lesson_id
+                LEFT JOIN quiz q ON qv.quiz_id = q.quiz_id
+                LEFT JOIN video_attempts va
+                	on va.video_id = qv.video_id 
+                	and user_id = %s  -- ใส่ ID ของผู้ใช้ที่ล็อกอินอยู่
+                WHERE c.slug = %s
+            )
+            select * from all_quiz where video_id = %s
+        """, (user_id, slug, video_id))
         
         video_row = cur.fetchone()
 
@@ -3865,6 +4105,7 @@ def watch_video(slug, video_id):
         # Extract course ID and lesson ID from the fetched row
         course_id = video_row[0]
         lesson_id = video_row[11]  # ตรวจสอบให้แน่ใจว่า lesson_id ถูกต้อง
+        quiz_limit = 15
 
         # Fetch lessons associated with this course
         cur.execute("SELECT l.lesson_id, l.lesson_name FROM lesson l WHERE l.course_id = %s", [course_id])
@@ -3873,25 +4114,45 @@ def watch_video(slug, video_id):
         lessons = []
         for lesson in lesson_names:
             current_lesson_id = lesson[0]
-            
             # Fetch quizzes associated with each lesson
             cur.execute("""
+                WITH latest_quiz_attempts AS (
+                    SELECT 
+                        quiz_id, 
+                        MAX(attempt_id) AS latest_attempt_id
+                    FROM quiz_attempts
+                    WHERE user_id = %s -- ใส่ ID ของผู้ใช้ที่ล็อกอินอยู่
+                    GROUP BY quiz_id
+                ), lastest_video_attemts as (
+                    SELECT 
+                        video_id, 
+                        MAX(attempt_id) AS latest_attempt_id
+                    FROM video_attempts
+                    WHERE user_id = %s -- ใส่ ID ของผู้ใช้ที่ล็อกอินอยู่
+                    GROUP BY video_id
+                )         
                 SELECT 
                     q.quiz_id, q.quiz_name, qv.video_id, qv.title, qv.youtube_link, qv.description, 
                     qv.time_duration, qv.preview, qv.video_image, COUNT(que.question_id) AS question_count, 
-                    IFNULL(qa.passed, 0) AS passed
+                    COALESCE (qa.passed, va.passed , 0) AS passed
                 FROM quiz_video qv
                 LEFT JOIN question que ON qv.quiz_id = que.quiz_id
                 LEFT JOIN quiz q ON q.quiz_id = qv.quiz_id
                 LEFT JOIN (
-                    SELECT quiz_id, passed
-                    FROM quiz_attempts
-                    WHERE user_id = %s  -- ใส่ ID ของผู้ใช้ที่ล็อกอินอยู่
+                    SELECT qa.quiz_id, qa.passed
+                    FROM quiz_attempts qa
+                    JOIN latest_quiz_attempts lqa
+                        on lqa.latest_attempt_id = qa.attempt_id
                 ) qa ON q.quiz_id = qa.quiz_id
+                LEFT JOIN (
+                    select va.video_id, va.passed from video_attempts va
+                    join lastest_video_attemts lva
+                        on lva.latest_attempt_id = va.attempt_id
+                ) as va on va.video_id = qv.video_id 
                 WHERE qv.lesson_id = %s
                 GROUP BY qv.video_id, qv.title, qv.youtube_link, qv.description, 
-                        qv.time_duration, qv.preview, qv.video_image, q.quiz_id, q.quiz_name, qa.passed;
-            """, [user_id, current_lesson_id])
+                        qv.time_duration, qv.preview, qv.video_image, q.quiz_id, q.quiz_name, qa.passed, va.passed;
+            """, [user_id, user_id, current_lesson_id])
 
             quizzes = cur.fetchall()
 
@@ -3905,7 +4166,7 @@ def watch_video(slug, video_id):
                 'time_duration': q[6], 
                 'preview': q[7], 
                 'video_image': q[8], 
-                'question_count': q[9], 
+                'question_count': q[9] if q[9] < quiz_limit else quiz_limit, 
                 'passed': q[10]} for q in quizzes]
 
             lesson_data = {
@@ -3928,8 +4189,14 @@ def watch_video(slug, video_id):
             'time_duration': video_row[8],
             'video_image': video_row[9],
             'quiz_id': video_row[10],
-            'lesson_id': video_row[11]  # ตรวจสอบให้แน่ใจว่า lesson_id ถูกต้อง
+            'lesson_id': video_row[11],  # ตรวจสอบให้แน่ใจว่า lesson_id ถูกต้อง
+            'passed': video_row[14]
         }
+
+        next_element = {
+            'element_id': video_row[12],
+            'element_type': video_row[13],
+        } 
 
         questions_data = []  # Initialize an empty list
         
@@ -3948,7 +4215,20 @@ def watch_video(slug, video_id):
 
             questions = random_questions(video_row[10], 15)  # Adjust limit as needed
 
-            questions_data = [{'question_id': q[0], 'quiz_id': q[1], 'score': q[2], 'quiz_name': q[3], 'question_name': q[4], 'choice_a': q[5], 'choice_b': q[6], 'choice_c': q[7], 'choice_d': q[8], 'correct_answer': q[9]} for q in questions]
+            questions_data = [
+                {
+                    'question_id': q[0], 
+                    'quiz_id': q[1], 
+                    'score': q[2], 
+                    'quiz_name': q[3], 
+                    'question_name': q[4], 
+                    'choice_a': q[5], 
+                    'choice_b': q[6], 
+                    'choice_c': q[7], 
+                    'choice_d': q[8], 
+                    'correct_answer': q[9]
+                } for q in questions
+            ]
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -3965,11 +4245,12 @@ def watch_video(slug, video_id):
 
     # Render the template with all necessary data
     return render_template('course/video.html', 
-                           video=video,
-                           lessons=lessons,
-                           questions=questions_data, 
-                           lesson_id=lesson_id,  # Pass lesson_id to the template
-                           limit=len(questions_data))
+        video=video,
+        lessons=lessons,
+        questions=questions_data, 
+        lesson_id=lesson_id,
+        next_element=next_element
+    )
 
 
 
