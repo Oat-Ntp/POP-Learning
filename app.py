@@ -3370,6 +3370,7 @@ def course_details(slug):
 
             if course_row:
                 course_id = course_row[0]
+                quiz_limit = 15
 
                 # Check if the user is enrolled in the course
                 user_id = current_user.id if current_user.is_authenticated else None
@@ -3396,16 +3397,57 @@ def course_details(slug):
                 for lesson in lesson_names:
                     lesson_id = lesson[0]
                     cur.execute("""
-                        SELECT q.quiz_id, q.quiz_name, qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, COUNT(que.question_id) AS question_count
+                        WITH latest_quiz_attempts AS (
+                            SELECT 
+                                quiz_id, 
+                                MAX(attempt_id) AS latest_attempt_id
+                            FROM quiz_attempts
+                            WHERE user_id = %s
+                            GROUP BY quiz_id
+                        ), lastest_video_attemts as (
+                            SELECT 
+                                video_id, 
+                                MAX(attempt_id) AS latest_attempt_id
+                            FROM video_attempts
+                            WHERE user_id = %s
+                            GROUP BY video_id
+                        )         
+                        SELECT qv.lesson_id, q.quiz_id, q.quiz_name, qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, COUNT(que.question_id) AS question_count, COALESCE(quiz_attempts.passed, va.passed, 0) AS passed
                         FROM quiz_video qv
                         LEFT JOIN question que ON qv.quiz_id = que.quiz_id
                         LEFT JOIN quiz q ON q.quiz_id = qv.quiz_id
+                        LEFT JOIN (
+                            SELECT qa.quiz_id, qa.passed
+                            FROM quiz_attempts qa
+                            JOIN latest_quiz_attempts lqa
+                                on lqa.latest_attempt_id = qa.attempt_id
+                        ) quiz_attempts ON q.quiz_id = quiz_attempts.quiz_id
+                        LEFT JOIN (
+                            select va.video_id, va.passed from video_attempts va
+                            join lastest_video_attemts lva
+                                on lva.latest_attempt_id = va.attempt_id
+                        ) as va on va.video_id = qv.video_id 
                         WHERE qv.lesson_id = %s
-                        GROUP BY qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview;
-                    """, [lesson_id])
+                        GROUP BY qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, q.quiz_id, q.quiz_name, quiz_attempts.passed, va.passed;
+                    """, [user_id, user_id, lesson_id])
                     quizzes = cur.fetchall()
 
-                    quizzes_data = [{'quiz_id': q[0], 'quiz_name': q[1], 'video_id': q[2], 'title': q[3], 'youtube_link': q[4], 'description': q[5], 'time_duration': q[6], 'preview': q[7], 'question_count': q[8]} for q in quizzes]
+                    quizzes_data = [
+                        {
+                            'lesson_id': q[0], 
+                            'quiz_id': q[1], 
+                            'quiz_name': q[2], 
+                            'video_id': q[3], 
+                            'title': q[4], 
+                            'youtube_link': q[5], 
+                            'description': q[6], 
+                            'time_duration': q[7], 
+                            'preview': q[8], 
+                            'video_image': q[9], 
+                            'question_count': q[10] if q[10] < quiz_limit else quiz_limit, 
+                            'passed': q[11]
+                        } for q in quizzes
+                    ]
 
                     lesson_data = {
                         'lesson_id': lesson_id,
@@ -3920,7 +3962,7 @@ def generate_certificate():
     certificate_data = cur.fetchone()
 
     if not certificate_data:
-        jsonify(success=False, error=f'Missing certificate data for user: {user_id}')
+        return jsonify(success=False, error=f'Missing certificate data for user: {user_id}')
 
     user_name = f"{certificate_data[2]} {certificate_data[3]}"  # first_name
     course_name = certificate_data[0]  # title

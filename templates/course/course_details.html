@@ -140,9 +140,17 @@
                                                     <div class="text-secondary d-flex">
                                                         <i class="fa fa-file-text" aria-hidden="true"></i>
                                                     </div>
-                                                    <div class="ms-4">
-                                                        {{ quiz_video.quiz_name }}
-                                                    </div>
+                                                    {% if quiz_video.passed == 1 %}
+                                                        <a href="{{ url_for('take_quiz', slug=course.slug, quiz_id=quiz_video.quiz_id) }}">
+                                                            <div class="ms-4">
+                                                                {{ quiz_video.quiz_name }}
+                                                            </div>
+                                                        </a>
+                                                    {% else %}
+                                                        <div class="ms-4 text-muted">
+                                                            {{ quiz_video.quiz_name }} (Locked)
+                                                        </div>
+                                                    {% endif %}
                                                 {% endif %}
 
                                                 {% if quiz_video.title and quiz_video.title != '-' %}
@@ -173,7 +181,7 @@
                                             <div class="d-flex align-items-center overflow-auto overflow-md-visible flex-shrink-all">
                                                 {% if limit and quiz_video.question_count and quiz_video.question_count > 0 %}
                                                     <div class="badge text-dark-70 bg-orange-40 me-5 font-size-sm fw-normal py-2">
-                                                        {{ limit }} questions
+                                                        {{ quiz_video.question_count }} questions
                                                     </div>
                                                 {% endif %}
 
