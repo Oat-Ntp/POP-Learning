@@ -217,7 +217,7 @@
                     title: 'ผลการทำข้อสอบ!',
                     text: `คุณได้คะแนน: ${data.score} คะแนน\n${data.passed ? '(ผ่าน)' : '(ไม่ผ่าน)'}`,
                     icon: 'success',
-                    confirmButtonText: 'OK',
+                    confirmButtonText: 'Next',
                 }).then((result) => {
                     
                     if (result.isConfirmed) {
@@ -231,6 +231,7 @@
                                     .replace('__ELEMENT_ID__', next_element.element_id);;
                         }else{
                             alert('invalid element type')
+                            return
                         }
                         window.location.href = nextPageUrl;
                     }
@@ -241,7 +242,7 @@
                     title: 'ผลการทำข้อสอบ!',
                     text: `คุณได้คะแนน: ${data.score} คะแนน\n${data.passed ? '(ผ่าน)' : '(ไม่ผ่าน)'}`,
                     icon: 'error',
-                    confirmButtonText: 'OK',
+                    confirmButtonText: 'Close',
                 })
             }
         })

@@ -215,8 +215,7 @@ INSERT INTO `question` (`question_id`, `quiz_id`, `score`, `question_name`, `cho
 (7, 16, 1, 'บริษัทใดเป็นผู้พัฒนาระบบปฏิบัติการ windowsssssssss', 'Microsoft 555', 'Apple 222', 'NASA 1112', 'Google 433', 'a'),
 (8, 16, 1, 'ในยุคเริ่มต้นระบบปฏิบัติการ Windows ใช้คำสั่งใดในการนำเข้าข้อมูล', 'คำสั่ง', 'คำสั่ง Terminal', 'คำสั่ง DOS', 'คำสั่ง เสียง', 'c'),
 (9, 16, 1, 'ระบบปฏิบัติการ Windows ถูกสร้างขึ้นในปี ค.ศ. ใด', '1985', '2000', '2001', '2005', 'b'),
-(10, 17, 1, 'wqrr', 'tert', 'ytry', 'ytyt', 'tt', 'd'),
-(11, 18, 1, 'wqrr', 'tert', 'ytry', 'ytyt', 'tt', 'd');
+(10, 17, 1, 'wqrr', 'tert', 'ytry', 'ytyt', 'tt', 'd');
 
 -- --------------------------------------------------------
 
@@ -227,6 +226,7 @@ INSERT INTO `question` (`question_id`, `quiz_id`, `score`, `question_name`, `cho
 CREATE TABLE `quiz` (
   `quiz_id` int(11) NOT NULL,
   `quiz_name` varchar(100) DEFAULT NULL,
+  `quiz_type_id` int(11) NOT NULL,
   `lesson_id` int(11) NOT NULL,
   `passing_percentage` int(11) DEFAULT NULL,
   `quiz_date` datetime DEFAULT current_timestamp()
@@ -236,13 +236,36 @@ CREATE TABLE `quiz` (
 -- Dumping data for table `quiz`
 --
 
-INSERT INTO `quiz` (`quiz_id`, `quiz_name`, `lesson_id`, `passing_percentage`, `quiz_date`) VALUES
-(9, 'Pre-Test', 1, 0, '2024-06-13 22:34:34.000'),
-(16, 'Post-Test', 1, 50, '2024-06-16 16:49:15.000'),
-(17, 'Pre-Test', 3, 0, '2024-06-16 16:50:31.000'),
-(18, 'Post-Test', 3, 40, '2024-06-16 21:41:48.000'),
-(19, 'Pre-Test', 6, 0, '2024-06-28 01:10:09.000'),
-(20, 'weqrq', 10, 20, '2024-06-28 01:10:21.000');
+INSERT INTO `quiz` (`quiz_id`, `quiz_name`, `quiz_type_id`, `lesson_id`, `passing_percentage`, `quiz_date`) VALUES
+(9, 'Pre-Test', 1, 1, 0, '2024-06-13 22:34:34.000'),
+(16, 'Post-Test', 2, 1, 50, '2024-06-16 16:49:15.000'),
+(17, 'Pre-Test', 1, 3, 0, '2024-06-16 16:50:31.000'),
+(18, 'Post-Test', 2, 3, 40, '2024-06-16 21:41:48.000'),
+(19, 'Pre-Test', 1, 6, 0, '2024-06-28 01:10:09.000'),
+(20, 'weqrq', 1, 10, 20, '2024-06-28 01:10:21.000');
+
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `quiz_type`
+--
+
+CREATE TABLE `quiz_type` (
+  `id` bigint(20) NOT NULL,
+  `name` varchar(100) NOT NULL
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+--
+-- Dumping data for table `quiz_type`
+--
+
+INSERT INTO quiz_type
+(id, name)
+VALUES(1, 'Pre-Test');
+INSERT INTO quiz_type
+(id, name)
+VALUES(2, 'Post-Test');
 
 
 -- --------------------------------------------------------
@@ -375,8 +398,7 @@ CREATE TABLE `video_attempts` (
   `video_id` int(11) NOT NULL,
   `lesson_id` int(11) NOT NULL,
   `attempt_date` datetime NOT NULL,
-  `passed` tinyint(1) NOT NULL,
-  `watched_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `passed` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -477,6 +499,13 @@ ALTER TABLE `video_attempts`
   ADD KEY `video_attempts_ibfk_2` (`video_id`);
 
 --
+-- Indexes for table `quiz_type`
+--
+ALTER TABLE `quiz_type`
+  ADD PRIMARY KEY (`id`);
+
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -559,6 +588,12 @@ ALTER TABLE `video_attempts`
   MODIFY `attempt_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
+-- AUTO_INCREMENT for table `quiz_type`
+--
+ALTER TABLE `quiz_type`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
 -- Constraints for dumped tables
 --
 
@@ -579,7 +614,8 @@ ALTER TABLE `lesson`
 -- Constraints for table `quiz`
 --
 ALTER TABLE `quiz`
-  ADD CONSTRAINT `quiz_ibfk_1` FOREIGN KEY (`lesson_id`) REFERENCES `lesson` (`lesson_id`) ON DELETE CASCADE ON UPDATE NO ACTION;
+  ADD CONSTRAINT `quiz_ibfk_1` FOREIGN KEY (`lesson_id`) REFERENCES `lesson` (`lesson_id`) ON DELETE CASCADE ON UPDATE NO ACTION,
+  ADD CONSTRAINT `quiz_quiz_type_fk_1` FOREIGN KEY (`quiz_type_id`) REFERENCES `quiz_type` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 --
 -- Constraints for table `quiz_attempts`

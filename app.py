@@ -3610,7 +3610,7 @@ def take_quiz(slug, quiz_id):
 
         # Fetch course details and video information
         cur.execute("""
-            with all_quiz as (
+            WITH all_quiz AS (
                 SELECT 
                     c.id, c.title,
                     cat.name AS category_name,
@@ -3622,25 +3622,39 @@ def take_quiz(slug, quiz_id):
                     qv.time_duration,
                     qv.video_image,
                     qv.quiz_id,
-                    l.lesson_id,  -- Add lesson_id here
-                    LEAD( 
-                        CASE WHEN qv.quiz_id is not null 
-                        then qv.quiz_id else qv.video_id 
-                        end 
-                    ) over () as next_element_id,
-                    LEAD( 
-                        CASE WHEN qv.quiz_id is not null 
-                        then 'quiz' else 'video'
-                        end 
-                    ) over () as next_element_type
+                    l.lesson_id,
+                    ROW_NUMBER() OVER () AS rn
                 FROM courses c
                 JOIN categories cat ON c.category_id = cat.id
                 JOIN lesson l ON l.course_id = c.id
                 JOIN quiz_video qv ON qv.lesson_id = l.lesson_id
-                LEFT JOIN quiz q ON qv.quiz_id = q.quiz_id
                 WHERE c.slug = %s
             )
-            select * from all_quiz where quiz_id = %s
+            SELECT 
+                aq.id,
+                aq.title,
+                aq.category_name,
+                aq.slug,
+                aq.video_id,
+                aq.video_title,
+                aq.youtube_link,
+                aq.video_description,
+                aq.time_duration,
+                aq.video_image,
+                aq.quiz_id,
+                aq.lesson_id,
+                CASE WHEN aq2.quiz_id IS NOT NULL 
+                    THEN aq2.quiz_id 
+                    ELSE aq2.video_id 
+                END  AS next_element_id,
+                CASE WHEN aq2.quiz_id IS NOT NULL 
+                    THEN 'quiz' 
+                    ELSE 'video' 
+                END AS next_element_type
+            FROM all_quiz aq
+            LEFT JOIN all_quiz aq2 
+                on aq2.rn = aq.rn + 1
+            WHERE aq.quiz_id = %s;
         """, (slug, quiz_id))
         
         video_row = cur.fetchone()
@@ -4049,6 +4063,81 @@ def finish_course():
     return jsonify(success=True, passed=is_pass_all_test, certificate_url=certificate_url)
 
 
+@app.route('/start_video', methods=['POST'])
+def start_video():
+    data = request.get_json()
+    video_id = data.get('video_id')
+    lesson_id = data.get('lesson_id')
+    user_id = current_user.id  # Retrieve user_id from current_user
+
+    # Validate received data
+    print('Received data:', data)
+    print('Video ID:', video_id)
+    print('Lesson ID:', lesson_id)
+    print('User ID:', user_id)
+
+    if not video_id or not lesson_id or not user_id:
+        return jsonify({'message': 'Missing required parameters'}), 400
+
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("""
+            INSERT INTO video_attempts (user_id, video_id, lesson_id, attempt_date, passed, watched_at)
+            VALUES (%s, %s, %s, NOW(), 0, NOW())
+            ON DUPLICATE KEY UPDATE passed=passed
+        """, (user_id, video_id, lesson_id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({'message': 'Video started'})
+    except Exception as e:
+        # Log the error
+        print('Error:', e)
+        return jsonify({'message': 'Error starting video'}), 500
+    
+
+@app.route('/update_video_status', methods=['POST'])
+def update_video_status():
+    data = request.get_json()
+    video_id = data.get('video_id')
+    lesson_id = data.get('lesson_id')
+    status = data.get('status')
+    user_id = current_user.id
+
+    # Map status to passed
+    if status == 'completed':
+        passed = 1
+    else:
+        passed = 0
+
+    cur = mysql.connection.cursor()
+
+    try:
+        # Validate received values
+        if not video_id or not lesson_id or passed is None:
+            return jsonify({'error': 'Invalid video_id, lesson_id, or status'}), 400
+
+        # Update the current video's status
+        cur.execute("""
+            UPDATE video_attempts
+            SET passed = %s, watched_at = NOW()
+            WHERE user_id = %s AND video_id = %s AND lesson_id = %s
+        """, (passed, user_id, video_id, lesson_id))
+        mysql.connection.commit()
+        cur.close()
+        
+        # Check if the current video is watched till the end
+        if passed == 1:
+            return jsonify({'message': 'Video status updated', 'next_video_unlocked': True})
+
+        
+        return jsonify({'message': 'Video status updated', 'next_video_unlocked': False})
+
+    except Exception as err:
+        cur.close()
+        return jsonify({'error': str(err)}), 500
+
+
+
 
 
 
@@ -4060,7 +4149,7 @@ def watch_video(slug, video_id):
 
         # Fetch video details based on video ID and course slug
         cur.execute("""
-            with all_quiz as (
+            WITH all_quiz AS (
                 SELECT 
                     c.id, c.title,
                     cat.name AS category_name,
@@ -4072,29 +4161,44 @@ def watch_video(slug, video_id):
                     qv.time_duration,
                     qv.video_image,
                     qv.quiz_id,
-                    l.lesson_id,  -- Add lesson_id here
-                    LEAD( 
-                        CASE WHEN qv.quiz_id is not null 
-                        then qv.quiz_id else qv.video_id 
-                        end 
-                    ) over () as next_element_id,
-                    LEAD( 
-                        CASE WHEN qv.quiz_id is not null 
-                        then 'quiz' else 'video'
-                        end 
-                    ) over () as next_element_type,
-                    va.passed
+                    l.lesson_id,
+                    va.passed,
+                    ROW_NUMBER() OVER () AS rn
                 FROM courses c
                 JOIN categories cat ON c.category_id = cat.id
                 JOIN lesson l ON l.course_id = c.id
                 JOIN quiz_video qv ON qv.lesson_id = l.lesson_id
                 LEFT JOIN quiz q ON qv.quiz_id = q.quiz_id
-                LEFT JOIN video_attempts va
-                	on va.video_id = qv.video_id 
-                	and user_id = %s  -- ใส่ ID ของผู้ใช้ที่ล็อกอินอยู่
+                LEFT JOIN video_attempts va ON va.video_id = qv.video_id 
+                AND va.user_id = %s
                 WHERE c.slug = %s
             )
-            select * from all_quiz where video_id = %s
+            SELECT 
+                aq.id,
+                aq.title,
+                aq.category_name,
+                aq.slug,
+                aq.video_id,
+                aq.video_title,
+                aq.youtube_link,
+                aq.video_description,
+                aq.time_duration,
+                aq.video_image,
+                aq.quiz_id,
+                aq.lesson_id,
+                CASE WHEN aq2.quiz_id IS NOT NULL 
+                    THEN aq2.quiz_id 
+                    ELSE aq2.video_id 
+                END  AS next_element_id,
+                CASE WHEN aq2.quiz_id IS NOT NULL 
+                    THEN 'quiz' 
+                    ELSE 'video' 
+                END AS next_element_type,
+                aq.passed
+            FROM all_quiz aq
+            LEFT JOIN all_quiz aq2 
+                on aq2.rn = aq.rn + 1
+            WHERE aq.video_id = %s;
         """, (user_id, slug, video_id))
         
         video_row = cur.fetchone()
