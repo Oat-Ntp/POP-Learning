@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Edit Quiz{% endblock %}
+{% block title %}แก้ไขแบบทดสอบ{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -9,7 +9,7 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1>Edit Quiz</h1>
+                    <h1>จัดการข้อมูลแบบทดสอบ/Quiz</h1>
                 </div>
             </div>
         </div>
@@ -17,7 +17,7 @@
     <section class="content">
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Edit Quiz Form</h3>
+                <h3 class="card-title">ฟอร์มแก้ไขแบบทดสอบ</h3>
             </div>
             <div class="card-body">
                 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -52,10 +52,21 @@
                                 </div>
                             </div>
                             <div class="form-group row">
-                                <label for="lesson_id" class="col-sm-2 col-form-label">Lesson :</label>
+                                <label for="quiz_type" class="col-sm-2 col-form-label">ประเภทแบบทดสอบ :</label>
+                                <div class="col-sm-3">
+                                    <select id="quiz_type" class="form-control custom-select" name="quiz_type">
+                                        <option selected="" disabled="">เลือกประเภทแบบทดสอบ</option>
+                                        {% for type in quiz_types %}
+                                            <option value="{{ type }}" {% if type == quiz[5] %}selected{% endif %}>{{ type }}</option>
+                                        {% endfor %}    
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="lesson_id" class="col-sm-2 col-form-label">บทเรียน :</label>
                                 <div class="col-sm-3">
                                     <select id="lesson_id" class="form-control custom-select" name="lesson_id">
-                                        <option selected="" disabled="">Select lesson</option>
+                                        <option selected="" disabled="">เลือกบทเรียน</option>
                                         {% for lesson in lesson %}
                                         <option value="{{ lesson[0] }}"{% if quiz[2] == lesson[0] %} selected {% endif %}>{{ lesson[1] }} {{ lesson[2] }}
                                         </option> 
@@ -73,7 +84,7 @@
                         </div>
                         <div class="form-group row">
                             <div class="col-sm-10 offset-sm-2">
-                                <button type="submit" class="btn btn-primary" id="submitButton">Submit</button>
+                                <button type="submit" class="btn btn-primary" id="submitButton">อัปเดตแบบทดสอบ</button>
                             </div>
                         </div>
                 </form>

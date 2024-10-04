@@ -15,12 +15,12 @@
     <nav class="mb-5 mb-md-8 mt-2" aria-label="breadcrumb">
         <ol class="breadcrumb breadcrumb-scroll">
             <li class="breadcrumb-item">
-                <a class="text-gray-800" href="#">
+                <a class="text-gray-800" href="{{ url_for('home') }}">
                     Home
                 </a>
             </li>
             <li class="breadcrumb-item">
-                <a class="text-gray-800" href="#">
+                <a class="text-gray-800" href="{{ url_for('courses') }}">
                     Courses
                 </a>
             </li>
@@ -39,13 +39,13 @@
 <div class="container">
     {% if course %}
         <div class="row mb-8">
-            <div class="col-lg-8 mb-6 mb-lg-0 position-relative">
+            <div class="col-lg-8 mb-6 mb-lg-0 position-relative order-lg-1 order-2">
                 <h1 class="me-7 me-xl-14">
                     {{ course.title }}
                 </h1>
                 {% set words = course.description.split() %}
-                {% if words|length > 15 %}
-                    {% set truncated_words = words[:15] + ['...'] %}
+                {% if words|length > 1 %}
+                    {% set truncated_words = words[:5] + ['...'] %}
                 {% else %}
                     {% set truncated_words = words %}
                 {% endif %}
@@ -60,7 +60,7 @@
                     </div>
 
                     <div class="mb-4 mb-md-0 me-md-8 me-lg-4 me-xl-8">
-                        <h6 class="mb-0">Created by</h6>
+                        <h6 class="mb-0">Taught by</h6>
                         <a href="#" class="font-size-sm text-gray-800">{{ course.instructor_name.name }}</a>
                     </div>
 
@@ -83,9 +83,9 @@
                     </ul>
 
                     <h3 class="">Course Description</h3>
-                    <p class="mb-6 line-height-md">{{ course.description[:245] }}</p>
+                    <p class="mb-6 line-height-md">{{ course.description[:184] }}</p>
 
-                    <p class="collapse mb-6 line-height-md" id="readcollapseExample">{{ course.description[245:3000] }}</p>
+                    <p class="collapse mb-6 line-height-md" id="readcollapseExample">{{ course.description[184:3000] }}</p>
                     <a class="text-teal read-more h6 d-inline-block mb-8" data-bs-toggle="collapse" href="#readcollapseExample" role="button" aria-expanded="false" aria-controls="readcollapseExample">
                         <span class="d-inline-flex align-items-center more">
                             Read More
@@ -154,30 +154,41 @@
                                                 {% endif %}
 
                                                 {% if quiz_video.title and quiz_video.title != '-' %}
-                                                    <div class="text-secondary d-flex ms-4">
-                                                        <i class="fab fa-youtube" style="color: red"></i>
-                                                    </div>
-                                                    <div class="ms-4">
-                                                        {% if check_enroll %}
-                                                        <a href="{{ url_for('watch_video', slug=course.slug, video_id=quiz_video.video_id) }}">
-                                                                <div class="ms-4">
-                                                                    {{ quiz_video.title }}
-                                                                </div>
-                                                            </a>
-                                                        {% else %}
-                                                            {% if quiz_video.preview == 1 %}
-                                                                <a href="https://www.youtube.com/watch?v={{ quiz_video.youtube_link }}" class="rounded" data-fancybox>
-                                                                    {{ quiz_video.title }}
-                                                                </a>
+                                                    <div class="d-flex ms-4" style="position: relative; padding-right: 0%; align-items: stretch;">
+                                                        <i class="fab fa-youtube" style="color: red; margin-right: 8px; margin-top: 5px;"></i>
+                                                        <div>
+                                                            {% if check_enroll %}
+                                                                {% if quiz_video.passed == 1 %}
+                                                                    <a href="{{ url_for('watch_video', slug=course.slug, video_id=quiz_video.video_id) }}">
+                                                                        {{ quiz_video.title }}
+                                                                    </a>
+                                                                {% else %}
+                                                                    {% if quiz_video.preview == 1 %}
+                                                                        <a href="https://www.youtube.com/watch?v={{ quiz_video.youtube_link }}" class="rounded" data-fancybox>
+                                                                            {{ quiz_video.title }}
+                                                                        </a>
+                                                                    {% else %}
+                                                                        <div data-toggle="tooltip" title="Complete the previous video to unlock this one!">
+                                                                            {{ quiz_video.title }}
+                                                                        </div>
+                                                                    {% endif %}
+                                                                {% endif %}
                                                             {% else %}
-                                                                <div class="ms-4" data-toggle="tooltip" title="Enroll This Course!">
+                                                                <div style="position: relative; padding-right: 0%;" data-toggle="tooltip" title="Enroll This Course!">
                                                                     {{ quiz_video.title }}
                                                                 </div>
                                                             {% endif %}
-                                                        {% endif %}
+                                                            {% if quiz_video.video_image %}
+                                                                <div style="padding-top: 0%;">
+                                                                    <img src="{{ url_for('static', filename=quiz_video.video_image) }}" alt="{{ quiz_video.title }}" style="width: 50%; height: auto;">
+                                                                </div>
+                                                            {% endif %}
+                                                        </div>
                                                     </div>
                                                 {% endif %}
+
                                             </div>
+                                            
                                             <div class="d-flex align-items-center overflow-auto overflow-md-visible flex-shrink-all">
                                                 {% if limit and quiz_video.question_count and quiz_video.question_count > 0 %}
                                                     <div class="badge text-dark-70 bg-orange-40 me-5 font-size-sm fw-normal py-2">
@@ -190,11 +201,37 @@
                                                         {{ quiz_video.time_duration }} min
                                                     </div>
                                                 {% endif %}
-                                                <a href="#" class="text-secondary d-flex">
-                                                    <svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">
-                                                        <path d="M12.8704 6.15374L3.42038 0.328572C2.73669 -0.0923355 1.9101 -0.109836 1.20919 0.281759C0.508282 0.673291 0.0898438 1.38645 0.0898438 2.18929V13.7866C0.0898438 15.0005 1.06797 15.9934 2.27016 16C2.27344 16 2.27672 16 2.27994 16C2.65563 16 3.04713 15.8822 3.41279 15.6591C3.70694 15.4796 3.79991 15.0957 3.62044 14.8016C3.44098 14.5074 3.05697 14.4144 2.76291 14.5939C2.59188 14.6982 2.42485 14.7522 2.27688 14.7522C1.82328 14.7497 1.33763 14.3611 1.33763 13.7866V2.18933C1.33763 1.84492 1.51713 1.53907 1.81775 1.3711C2.11841 1.20314 2.47294 1.21064 2.76585 1.39098L12.2159 7.21615C12.4999 7.39102 12.6625 7.68262 12.6618 8.01618C12.6611 8.34971 12.4974 8.64065 12.2118 8.81493L5.37935 12.9983C5.08548 13.1783 4.9931 13.5623 5.17304 13.8562C5.35295 14.1501 5.73704 14.2424 6.03092 14.0625L12.8625 9.87962C13.5166 9.48059 13.9081 8.78496 13.9096 8.01868C13.9112 7.25249 13.5226 6.55524 12.8704 6.15374Z" fill="currentColor" />
-                                                    </svg>
-                                                </a>
+                                                {% if quiz_video.passed == 1 %}
+                                                    <a href="#" class="text-secondary d-flex">
+                                                        <svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">
+                                                            <path d="M12.8704 6.15374L3.42038 0.328572C2.73669 -0.0923355 1.9101 -0.109836 1.20919 0.281759C0.508282 0.673291 0.0898438 1.38645 0.0898438 2.18929V13.7866C0.0898438 15.0005 1.06797 15.9934 2.27016 16C2.27344 16 2.27672 16 2.27994 16C2.65563 16 3.04713 15.8822 3.41279 15.6591C3.70694 15.4796 3.79991 15.0957 3.62044 14.8016C3.44098 14.5074 3.05697 14.4144 2.76291 14.5939C2.59188 14.6982 2.42485 14.7522 2.27688 14.7522C1.82328 14.7497 1.33763 14.3611 1.33763 13.7866V2.18933C1.33763 1.84492 1.51713 1.53907 1.81775 1.3711C2.11841 1.20314 2.47294 1.21064 2.76585 1.39098L12.2159 7.21615C12.4999 7.39102 12.6625 7.68262 12.6618 8.01618C12.6611 8.34971 12.4974 8.64065 12.2118 8.81493L5.37935 12.9983C5.08548 13.1783 4.9931 13.5623 5.17304 13.8562C5.35295 14.1501 5.73704 14.2424 6.03092 14.0625L12.8625 9.87962C13.5166 9.48059 13.9081 8.78496 13.9096 8.01868C13.9112 7.25249 13.5226 6.55524 12.8704 6.15374Z" fill="currentColor" />
+                                                        </svg>
+                                                    </a>
+                                                {% elif quiz_video.preview == 1 %}
+                                                    <a href="#" class="text-secondary d-flex">
+                                                        <svg width="14" height="16" viewBox="0 0 14 16" xmlns="http://www.w3.org/2000/svg">
+                                                            <path d="M12.8704 6.15374L3.42038 0.328572C2.73669 -0.0923355 1.9101 -0.109836 1.20919 0.281759C0.508282 0.673291 0.0898438 1.38645 0.0898438 2.18929V13.7866C0.0898438 15.0005 1.06797 15.9934 2.27016 16C2.27344 16 2.27672 16 2.27994 16C2.65563 16 3.04713 15.8822 3.41279 15.6591C3.70694 15.4796 3.79991 15.0957 3.62044 14.8016C3.44098 14.5074 3.05697 14.4144 2.76291 14.5939C2.59188 14.6982 2.42485 14.7522 2.27688 14.7522C1.82328 14.7497 1.33763 14.3611 1.33763 13.7866V2.18933C1.33763 1.84492 1.51713 1.53907 1.81775 1.3711C2.11841 1.20314 2.47294 1.21064 2.76585 1.39098L12.2159 7.21615C12.4999 7.39102 12.6625 7.68262 12.6618 8.01618C12.6611 8.34971 12.4974 8.64065 12.2118 8.81493L5.37935 12.9983C5.08548 13.1783 4.9931 13.5623 5.17304 13.8562C5.35295 14.1501 5.73704 14.2424 6.03092 14.0625L12.8625 9.87962C13.5166 9.48059 13.9081 8.78496 13.9096 8.01868C13.9112 7.25249 13.5226 6.55524 12.8704 6.15374Z" fill="currentColor" />
+                                                        </svg>
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted d-flex">
+                                                        <i class="fa fa-lock" aria-hidden="true"></i>
+                                                    </span>
+                                                {% endif %}
+
+                                                {% if current_user.role in ['admin', 'instructor'] %}
+                                                    {% if quiz_video.quiz_name and quiz_video.quiz_name != '-' %}
+                                                        <a href="{{ url_for('take_quiz', slug=course.slug, quiz_id=quiz_video.quiz_id) }}" class="ms-4 text-secondary d-flex">
+                                                            <i class="fa fa-eye" aria-hidden="true"></i>
+                                                        </a>
+                                                    {% elif quiz_video.title and quiz_video.title != '-' %}
+                                                        <a href="{{ url_for('watch_video', slug=course.slug, video_id=quiz_video.video_id) }}" class="ms-4 text-secondary d-flex">
+                                                            <i class="fa fa-eye" aria-hidden="true"></i>
+                                                        </a>
+                                                    {% endif %}
+                                                {% endif %}
+
+
                                             </div>
                                         </div>
                                     {% endfor %}
@@ -206,7 +243,7 @@
 
             </div>
 
-        <div class="col-lg-4">
+        <div class="col-lg-4 order-lg-2 order-1">
             <!-- SIDEBAR FILTER
                 ================================================== -->
             <div class="d-block rounded border p-2 shadow mb-6">
@@ -233,6 +270,20 @@
                         <del class="ms-3"></del>
                         <div class="badge badge-lg badge-purple text-white ms-auto fw-normal"></div>
                     </div>
+                    <div class="progress">
+                        <div class="progress-bar{% if progress_percentage == 100 %} completed{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ progress_percentage }}%;" 
+                             aria-valuenow="{{ progress_percentage }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {% if progress_percentage == 100 %}
+                                Success
+                            {% else %}
+                                {{ progress_percentage }}%
+                            {% endif %}
+                        </div>
+                    </div>                    
 
                     <div class="d-flex align-items-center text-alizarin mb-6">
                         <!-- Icon -->
@@ -243,12 +294,18 @@
                     {% if check_enroll %}
                         <button class="btn btn-primary btn-block mb-3" type="button" name="button" disabled>ALREADY ENROLLED</button>
                         {% if enroll_data[3] %}
-                            <a href="{{ url_for('generate_certificate', enroll_id=enroll_data[4], _external=True) }}" download="certificate.png" class="btn btn-success btn-block mb-3">DOWNLOAD CERTIFICATE</a>
+                            <a href="{{ url_for('generate_certificate', user_id=enroll_data[0],enroll_id=enroll_data[4], _external=True) }}" download="certificate.png" class="btn btn-success btn-block mb-3">DOWNLOAD CERTIFICATE</a>
                         {% endif %}
-                        {% if session.learning_status and session.learning_status.get(course.slug, false) %}
-                            <a href="{{ url_for('continue_page', slug=course.slug) }}" class="btn btn-primary btn-block mb-3">CONTINUE</a>
+
+                        {% if is_completed %}
+                            <!-- Show the RETAKE COURSE button if the course is completed -->
+                            <a href="{{ url_for('start_course', slug=course.slug) }}" class="btn btn-warning btn-block mb-3">RETAKE COURSE</a>
                         {% else %}
-                            <a href="{{ url_for('start_course', slug=course.slug) }}" class="btn btn-primary btn-block mb-3">START</a>
+                            {% if session.learning_status and session.learning_status.get(course.slug, false) %}
+                                <a href="{{ url_for('continue_page', slug=course.slug) }}" class="btn btn-primary btn-block mb-3">CONTINUE</a>
+                            {% else %}
+                                <a href="{{ url_for('start_course', slug=course.slug) }}" class="btn btn-primary btn-block mb-3">START</a>
+                            {% endif %}
                         {% endif %}
                     {% else %}
                         <a href="{{ url_for('enroll_course', slug=course.slug) }}" class="btn btn-orange btn-block mb-3">ENROLL</a>
@@ -291,7 +348,7 @@
                                 </svg>
 
                             </div>
-                            <h6 class="mb-0 ms-3 me-auto">Lectures</h6>
+                            <h6 class="mb-0 ms-3 me-auto">Lesson</h6>
                             <span>{{ lesson_count }}</span>
                         </li>
                         <li class="list-group-item d-flex align-items-center py-3">
@@ -307,79 +364,42 @@
                             </div>
                             <h6 class="mb-0 ms-3 me-auto">Enrolled</h6>
                             <span>{{ user_enroll_count }} students</span>
-                        </li>
-                        <li class="list-group-item d-flex align-items-center py-3">
-                            <div class="text-secondary d-flex icon-uxs">
-                                <!-- Icon -->
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M14.5936 3.78122H7.72003L6.56976 0.320872C6.50607 0.12928 6.32686 0 6.12495 0H1.40624C0.630839 0 0 0.630839 0 1.40624V10.8124C0 11.5878 0.630839 12.2187 1.40624 12.2187H6.57173L7.71263 15.6698C7.77566 15.8719 7.96259 16 8.1604 16C8.1615 16 8.16259 15.9999 8.16369 15.9999H14.5937C15.3691 15.9999 15.9999 15.369 15.9999 14.5936V5.18746C15.9999 4.41206 15.369 3.78122 14.5936 3.78122ZM1.40624 11.2812C1.14777 11.2812 0.937493 11.0709 0.937493 10.8124V1.40624C0.937493 1.14777 1.14777 0.937493 1.40624 0.937493H5.7868L9.22511 11.2812C7.46913 11.2812 3.14004 11.2812 1.40624 11.2812ZM9.14771 12.2187L8.22897 14.2449L7.55913 12.2187H9.14771ZM15.0624 14.5936C15.0624 14.8521 14.8521 15.0624 14.5936 15.0624H8.88768L10.3018 11.9435C10.3525 11.8316 10.3549 11.7077 10.3197 11.6018L8.03166 4.71871H14.5936C14.8521 4.71871 15.0624 4.92899 15.0624 5.18746V14.5936Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M6.12497 5.65623H4.71873C4.45986 5.65623 4.24998 5.8661 4.24998 6.12497C4.24998 6.38385 4.45986 6.59372 4.71873 6.59372H5.5756C5.3821 7.13931 4.86107 7.53121 4.24998 7.53121C3.47458 7.53121 2.84374 6.90037 2.84374 6.12497C2.84374 5.34958 3.47458 4.71874 4.24998 4.71874C4.6256 4.71874 4.97873 4.86502 5.24435 5.13061C5.42738 5.31367 5.72419 5.31367 5.90725 5.13061C6.09028 4.94755 6.09028 4.65077 5.90725 4.46771C5.46457 4.02503 4.87601 3.78125 4.24998 3.78125C2.95765 3.78125 1.90625 4.83264 1.90625 6.12497C1.90625 7.4173 2.95765 8.4687 4.24998 8.4687C5.54232 8.4687 6.59371 7.4173 6.59371 6.12497C6.59371 5.8661 6.38384 5.65623 6.12497 5.65623Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M13.625 7.53124H12.2187V7.0625C12.2187 6.80362 12.0089 6.59375 11.75 6.59375C11.4911 6.59375 11.2812 6.80362 11.2812 7.0625V7.53124H9.875C9.61612 7.53124 9.40625 7.74112 9.40625 7.99999C9.40625 8.25886 9.61612 8.46874 9.875 8.46874H12.5981C12.449 8.91201 12.1287 9.43735 11.7563 9.94291C11.6761 9.8346 11.5968 9.72376 11.5204 9.61138C11.3748 9.39729 11.0833 9.34176 10.8692 9.48735C10.6551 9.63291 10.5997 9.92447 10.7452 10.1386C10.8767 10.332 11.0146 10.5202 11.152 10.6985C10.9177 10.9702 10.6868 11.2163 10.4842 11.4154C10.2994 11.5967 10.2966 11.8935 10.4779 12.0783C10.6585 12.2623 10.9552 12.2666 11.1408 12.0846C11.157 12.0687 11.4126 11.8169 11.7541 11.4303C12.0873 11.8115 12.3367 12.0621 12.356 12.0814C12.539 12.2644 12.8357 12.2645 13.0188 12.0815C13.2019 11.8985 13.202 11.6017 13.019 11.4186C13.0141 11.4137 12.7271 11.1251 12.3609 10.698C13.0245 9.84029 13.429 9.09314 13.5691 8.46874H13.6249C13.8838 8.46874 14.0937 8.25886 14.0937 7.99999C14.0937 7.74112 13.8839 7.53124 13.625 7.53124Z"
-                                        fill="currentColor" />
-                                </svg>
-
-                            </div>
-                            <h6 class="mb-0 ms-3 me-auto">Language</h6>
-                            <span>{{course.language}}</span>
-                        </li>
-                        <li class="list-group-item d-flex align-items-center py-3">
-                            <div class="text-secondary d-flex icon-uxs">
-                                <!-- Icon -->
-                                <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M15.7188 9.8575V3.1875C15.7188 2.41209 15.0879 1.78125 14.3125 1.78125H12.4688V1.25C12.4688 0.991125 12.2589 0.78125 12 0.78125C11.7411 0.78125 11.5312 0.991125 11.5312 1.25V1.78125H8.46875V1.25C8.46875 0.991125 8.25887 0.78125 8 0.78125C7.74113 0.78125 7.53125 0.991125 7.53125 1.25V1.78125H4.46875V1.25C4.46875 0.991125 4.25887 0.78125 4 0.78125C3.74113 0.78125 3.53125 0.991125 3.53125 1.25V1.78125H1.40625C0.630844 1.78125 0 2.41209 0 3.1875V11.8125C0 12.5879 0.630844 13.2188 1.40625 13.2188H8.68531C9.35484 14.4112 10.6317 15.2188 12.0938 15.2188C14.2477 15.2188 16 13.4664 16 11.3125C16 10.7985 15.9 10.3074 15.7188 9.8575ZM12.5625 8.38087C13.8248 8.58197 14.8243 9.58144 15.0254 10.8438H12.5625V8.38087ZM1.40625 12.2812C1.14778 12.2812 0.9375 12.071 0.9375 11.8125V3.1875C0.9375 2.92903 1.14778 2.71875 1.40625 2.71875H3.53125V3.28125C3.53125 3.54012 3.74113 3.75 4 3.75C4.25887 3.75 4.46875 3.54012 4.46875 3.28125V2.71875H7.53125V3.28125C7.53125 3.54012 7.74113 3.75 8 3.75C8.25887 3.75 8.46875 3.54012 8.46875 3.28125V2.71875H11.5312V3.28125C11.5312 3.54012 11.7411 3.75 12 3.75C12.2589 3.75 12.4688 3.54012 12.4688 3.28125V2.71875H14.3125C14.571 2.71875 14.7812 2.92903 14.7812 3.1875V8.48034C14.0805 7.81506 13.134 7.40625 12.0938 7.40625C9.93984 7.40625 8.1875 9.15859 8.1875 11.3125C8.1875 11.6468 8.22978 11.9713 8.30916 12.2812H1.40625ZM12.0938 14.2812C10.4568 14.2812 9.125 12.9495 9.125 11.3125C9.125 9.83503 10.21 8.60631 11.625 8.38087V11.3125C11.625 11.5714 11.8349 11.7812 12.0938 11.7812H15.0254C14.7999 13.1962 13.5712 14.2812 12.0938 14.2812Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M3.25 5.78125H2.5C2.24112 5.78125 2.03125 5.99112 2.03125 6.25C2.03125 6.50888 2.24112 6.71875 2.5 6.71875H3.25C3.50888 6.71875 3.71875 6.50888 3.71875 6.25C3.71875 5.99112 3.50888 5.78125 3.25 5.78125Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M6 5.78125H5.25C4.99112 5.78125 4.78125 5.99112 4.78125 6.25C4.78125 6.50888 4.99112 6.71875 5.25 6.71875H6C6.25888 6.71875 6.46875 6.50888 6.46875 6.25C6.46875 5.99112 6.25888 5.78125 6 5.78125Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M6 7.78125H5.25C4.99112 7.78125 4.78125 7.99112 4.78125 8.25C4.78125 8.50888 4.99112 8.71875 5.25 8.71875H6C6.25888 8.71875 6.46875 8.50888 6.46875 8.25C6.46875 7.99112 6.25888 7.78125 6 7.78125Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M3.25 7.78125H2.5C2.24112 7.78125 2.03125 7.99112 2.03125 8.25C2.03125 8.50888 2.24112 8.71875 2.5 8.71875H3.25C3.50888 8.71875 3.71875 8.50888 3.71875 8.25C3.71875 7.99112 3.50888 7.78125 3.25 7.78125Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M3.25 9.78125H2.5C2.24112 9.78125 2.03125 9.99112 2.03125 10.25C2.03125 10.5089 2.24112 10.7188 2.5 10.7188H3.25C3.50888 10.7188 3.71875 10.5089 3.71875 10.25C3.71875 9.99112 3.50888 9.78125 3.25 9.78125Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M6 9.78125H5.25C4.99112 9.78125 4.78125 9.99112 4.78125 10.25C4.78125 10.5089 4.99112 10.7188 5.25 10.7188H6C6.25888 10.7188 6.46875 10.5089 6.46875 10.25C6.46875 9.99112 6.25888 9.78125 6 9.78125Z"
-                                        fill="currentColor" />
-                                </svg>
-
-                            </div>
-                            <h6 class="mb-0 ms-3 me-auto">Deadline</h6>
-                            <span>{{course.deadline}}</span>
-                        </li>
-                        <li class="list-group-item d-flex align-items-center py-3">
-                            <div class="text-secondary d-flex icon-uxs">
-                                <!-- Icon -->
-                                <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M16.5465 5.13024L15.2322 4.02945L14.9329 2.34131C14.8335 1.78023 14.348 1.37335 13.7783 1.37335C13.778 1.37335 13.7775 1.37335 13.7772 1.37335L12.0628 1.37488L10.7485 0.274205C10.3114 -0.0919028 9.67738 -0.0913556 9.24091 0.275574L7.92861 1.37875L6.2142 1.38035C5.64405 1.3809 5.15872 1.78887 5.06026 2.35042L4.76408 4.03907L3.45178 5.14228C3.01535 5.50917 2.90582 6.13362 3.19137 6.62712L4.04992 8.1111L3.75378 9.79967C3.65524 10.3613 3.97276 10.91 4.50875 11.1046L5.9543 11.6292L5.95989 18.8268C5.95989 19.2647 6.20095 19.6629 6.58899 19.8659C6.76059 19.9556 6.94712 20 7.13295 20C7.36737 20 7.60062 19.9294 7.8013 19.7901L9.9861 18.2734L12.1709 19.7901C12.5306 20.0398 12.9951 20.0689 13.3832 19.8659C13.7712 19.6629 14.0123 19.2647 14.0123 18.8268V11.6377L15.5005 11.0945C16.0361 10.899 16.3526 10.3496 16.2531 9.78825L15.9538 8.10015L16.8096 6.61461C17.0943 6.12056 16.9836 5.49631 16.5465 5.13024ZM10.3205 17.078C10.1194 16.9385 9.85281 16.9385 9.65178 17.078L7.13264 18.8265C7.13264 18.8264 7.13264 18.8263 7.13264 18.8263L7.12842 13.3771C7.35154 13.6218 7.66652 13.7592 7.99315 13.7592C8.12738 13.7592 8.26357 13.7361 8.39608 13.6877L10.0065 13.0999L11.6181 13.6848C12.0517 13.842 12.5242 13.7298 12.8396 13.4196L12.8395 18.8266L10.3205 17.078ZM14.9377 7.51475C14.8003 7.75327 14.7511 8.03382 14.7992 8.30482L15.0984 9.99292L13.4878 10.5808C13.286 10.6545 13.1095 10.783 12.9761 10.949C12.9697 10.9566 12.9639 10.9647 12.9579 10.9727C12.9277 11.0123 12.899 11.0533 12.8739 11.0969L12.0185 12.5825C12.0185 12.5825 12.0183 12.5825 12.0181 12.5824L10.4065 11.9976C10.1478 11.9037 9.86297 11.9039 9.6044 11.9983L7.99393 12.5861L7.13538 11.1022C7.08925 11.0224 7.03339 10.9496 6.97073 10.8835C6.96507 10.8774 6.95975 10.871 6.95381 10.8652C6.83236 10.7425 6.68464 10.6468 6.52039 10.5871L4.90882 10.0022L5.205 8.31358C5.2525 8.04245 5.20277 7.76199 5.06495 7.52378L4.20639 6.03984L5.51869 4.93663C5.72942 4.75952 5.87163 4.51263 5.91912 4.24159L6.2153 2.55298L7.92963 2.55138C8.20489 2.55114 8.47254 2.45346 8.68319 2.27635L9.99549 1.17318L11.3098 2.27389C11.5205 2.45041 11.7879 2.54759 12.0629 2.54759H12.0638L13.7783 2.54602L14.0775 4.23416C14.1255 4.50517 14.2682 4.75166 14.4792 4.92842L15.7935 6.02921L14.9377 7.51475Z"
-                                        fill="currentColor" />
-                                    <path
-                                        d="M9.99928 3.64673C8.13493 3.64673 6.61816 5.1635 6.61816 7.02785C6.61816 8.89221 8.13493 10.409 9.99928 10.409C11.8636 10.409 13.3804 8.89221 13.3804 7.02785C13.3804 5.1635 11.8636 3.64673 9.99928 3.64673ZM9.99928 9.23631C8.78154 9.23631 7.79083 8.2456 7.79083 7.02785C7.79083 5.81011 8.78154 4.8194 9.99928 4.8194C11.217 4.8194 12.2078 5.81011 12.2078 7.02785C12.2078 8.2456 11.217 9.23631 9.99928 9.23631Z"
-                                        fill="currentColor" />
-                                </svg>
-
-                            </div>
-                            <h6 class="mb-0 ms-3 me-auto">Certificate</h6>
-                            <span>{{course.certificate}}</span>
-                        </li>
+                        </li>                      
                     </ul>
                 </div>
             </div>
         </div>
     </div>
+    <style>
+        .progress-bar {
+            background-color: #007bff; /* สีเริ่มต้น */
+            transition: background-color 0.3s ease;
+            color: white; /* สีข้อความเริ่มต้น */
+            text-align: center; /* จัดข้อความให้อยู่กลาง */
+        }
+        
+        .progress-bar.completed {
+            background-color: green; /* เปลี่ยนสีเมื่อถึง 100% */
+        }
+        .content-wrapper {
+            display: flex;
+            flex-direction: row; /* ตั้งค่าการจัดเรียงปกติบนหน้าจอใหญ่ */
+        }
+        
+        @media (max-width: 768px) {
+            .content-wrapper {
+                flex-direction: column; /* จัดเรียงใหม่เป็นแถวแนวตั้งเมื่อหน้าจอมีขนาดเล็ก */
+            }
+        
+            .sidebar-filter {
+                order: 1; /* ตั้งให้ sidebar แสดงด้านบน */
+            }
+        
+            .curriculum {
+                order: 2; /* ตั้งให้ curriculum แสดงด้านล่าง */
+            }
+        }
+    </style>
     {% endif %}    
     {% include 'components/footer.html' %}
     {% endblock %}

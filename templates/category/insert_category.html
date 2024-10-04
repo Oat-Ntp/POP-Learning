@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Insert Category{% endblock %}
+{% block title %}เพิ่มหมวดหมู่{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -42,22 +42,23 @@
                 {% endwith %}
                 <form method="post" action="{{ url_for('insert_category') }}" enctype="multipart/form-data" id="profileForm">
                     <div class="form-group row">
-                        <label for="icon" class="col-sm-2 col-form-label">Icon</label>
+                        <label for="icon" class="col-sm-2 col-form-label">ไอคอน</label>
                         <div class="col-sm-3">
-                            <input type="text" class="form-control" id="icon" placeholder="Enter code icon"
+                            <input type="text" class="form-control" id="icon" placeholder="ป้อนรหัสไอคอน"
                                 name="icon">
+                            <span style="margin-right: 10px; color:red; font-size:small">*ตัวอย่างเช่น fa fa-facebook หาจาก Font Awesome</span>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="name" class="col-sm-2 col-form-label">Name</label>
+                        <label for="name" class="col-sm-2 col-form-label">ชื่อหมวดหมู่</label>
                         <div class="col-sm-3">
-                            <input type="text" class="form-control" id="name" placeholder="Enter Name"
+                            <input type="text" class="form-control" id="name" placeholder="กรอกชื่อหมวดหมู่"
                                 name="name">
                         </div>
                     </div>                    
                     <div class="form-group row">
                         <div class="col-sm-10 offset-sm-2">
-                            <button type="submit" class="btn btn-success">Add Category</button>
+                            <button type="submit" class="btn btn-success">เพิ่มหมวดหมู่</button>
                         </div>
                     </div>
                 </form>

@@ -1,6 +1,6 @@
 {% extends 'base_dashboard.html' %}
 
-{% block title %}Course Updated{% endblock %}
+{% block title %}แก้ไขหลักสูตร{% endblock %}
 
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
@@ -12,7 +12,7 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1>Updated Course</h1>
+                    <h1>จัดการข้อมูลหลักสูตร/Course</h1>
                 </div>
             </div>
         </div>
@@ -23,7 +23,7 @@
             <div class="col-md-12">
                 <div class="card card">
                     <div class="card-header">
-                        <h3 class="card-title">ฟอร์มอัปเดตคอร์สเรียน/Course</h3>
+                        <h3 class="card-title">ฟอร์มแก้ไขหลักสูตร/Course</h3>
                         <div class="card-tools">
                             <button type="button" class="btn btn-tool" data-card-widget="collapse" title="Collapse">
                                 <i class="fas fa-minus"></i>
@@ -31,13 +31,41 @@
                         </div>
                     </div>
                     <div class="card-body" style="display: block;">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                        <ul class="flashes">
+                            {% for category, message in messages %}
+                            <script type="text/javascript">
+                                document.addEventListener("DOMContentLoaded", function () {
+                                    Swal.fire({
+                                        title: "{{ message }}",
+                                        icon: "{{ category }}",                          
+                                    });
+                                });
+                            </script>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        {% endwith %}
                         <form method="post" action="{{ url_for('updated_course') }}" enctype="multipart/form-data">
                             <input type="hidden" id="id" name="id" value="{{ course[0] }}">
 
                             <!-- Featured image -->
                             <div class="form-group row">
-                                <label for="featured_image" class="col-sm-2 col-form-label">Featured image:</label>
+                                <label for="featured_image" class="col-sm-2 col-form-label">รูปภาพหลักสูตร</label>
                                 <div class="col-sm-3">
+                                    {% if course[1] %}
+                                        <span style="margin-right: 10px;">ภาพเก่า</span>
+                                        <div>
+                                            {% if 'uploads' in course[1] %}
+                                                <img src="{{ url_for('static', filename='img/uploads/' ~ course[1].replace('\\', '/').split('uploads/')[1]) }}" alt="Admin Image" style="width: 100px; height: auto;">
+                                            {% elif 'updated' in course[1] %}
+                                                <img src="{{ url_for('static', filename='img/updated/' ~ course[1].replace('\\', '/').split('updated/')[1]) }}" alt="Admin Image" style="width: 100px; height: auto;">
+                                            {% else %}
+                                                <img src="{{ url_for('static', filename=course[1].replace('\\', '/')) }}" alt="Admin Image" style="width: 100px; height: auto;">
+                                            {% endif %}
+                                        </div>                                      
+                                    {% endif %}
                                     <input type="file" class="form-control" id="featured_image" name="featured_image"
                                         value="{{ course[1] }}">
                                 </div>
@@ -45,28 +73,29 @@
 
                             <!-- Featured video -->
                             <div class="form-group row">
-                                <label for="featured_video" class="col-sm-2 col-form-label">Featured video:</label>
+                                <label for="featured_video" class="col-sm-2 col-form-label">วิดีโอแนะนำหลักสูตร</label>
                                 <div class="col-sm-2">
-                                    <input type="text" class="form-control" id="featured_video" name="featured_video"
+                                    <input type="text" class="form-control" id="featured_video" name="featured_video" placeholder="กรอกรหัสของวิดีโอ"
                                         value="{{ course[2] }}">
+                                        <span style="margin-right: 10px; color:red; font-size:small;">*www.youtube.com/watch?v=......</span>
                                 </div>
                             </div>
 
                             <!-- Title -->
                             <div class="form-group row">
-                                <label for="title" class="col-sm-2 col-form-label">Title:</label>
+                                <label for="title" class="col-sm-2 col-form-label">ชื่อหลักสูตร</label>
                                 <div class="col-sm-2">
-                                    <input type="text" class="form-control" id="title" name="title"
+                                    <input type="text" class="form-control" id="title" name="title" placeholder="กรอกชื่อ"
                                         value="{{ course[3] }}">
                                 </div>
                             </div>
 
                             <!-- Instructor -->
                             <div class="form-group row">
-                                <label for="instructor_id" class="col-sm-2 col-form-label">Instructor:</label>
+                                <label for="instructor_id" class="col-sm-2 col-form-label">ผู้สอน</label>
                                 <div class="col-sm-3">
                                     <select id="instructor_id" class="form-control custom-select" name="instructor_id">
-                                        <option selected="" disabled="">Select instructor</option>
+                                        <option selected="" disabled="">เลือกผู้สอน</option>
                                         {% for instructor in instructor %}
                                         <option value="{{ instructor[0] }}"{% if course[5] == instructor[0] %} selected {% endif %}>{{ instructor[1] }} {{ instructor[2] }}
                                         </option> 
@@ -76,10 +105,10 @@
                             </div>
 
                             <div class="form-group row">
-                                <label for="category_id" class="col-sm-2 col-form-label">Category:</label>
+                                <label for="category_id" class="col-sm-2 col-form-label">หมวดหมู่</label>
                                 <div class="col-sm-3">
                                     <select id="category_id" class="form-control custom-select" name="category_id">
-                                        <option selected disabled>Select category</option>
+                                        <option selected disabled>เลือกหมวดหมู่</option>
                                         {% for category in categories %}
                                             <option value="{{ category[0] }}"{% if course[6] == category[0] %} selected {% endif %}>{{ category[2] }}</option>
                                         {% endfor %}
@@ -91,69 +120,42 @@
 
                             <!-- Course Description -->
                             <div class="form-group row">
-                                <label for="description" class="col-sm-2 col-form-label">Course Description:</label>
+                                <label for="description" class="col-sm-2 col-form-label">คำอธิบายรายวิชา</label>
                                 <div class="col-sm-4">
                                     <textarea id="description" class="form-control" rows="5"
-                                        name="description">{{ course[7] }}</textarea>
+                                        name="description" placeholder="กรอคำอธิบาย">{{ course[7] }}</textarea>
                                 </div>
                             </div>
-
-                            <!-- Price -->                           
-
-                            <!-- Language -->
-                            <div class="form-group row">
-                                <label for="language" class="col-sm-2 col-form-label">Language:</label>
-                                <div class="col-sm-1">
-                                    <input type="text" id="language" class="form-control" name="language"
-                                        value="{{ course[8] }}">
-                                </div>
-                            </div>
-
-                            <!-- Deadline -->
-                            <div class="form-group row">
-                                <label for="deadline" class="col-sm-2 col-form-label">Deadline:</label>
-                                <div class="col-sm-3">
-                                    <input type="text" id="deadline" class="form-control" name="deadline"
-                                        value="{{ course[9] }}">
-                                </div>
-                            </div>
+                         
 
                             <!-- Slug -->
                             <div class="form-group row">
-                                <label for="slug" class="col-sm-2 col-form-label">Slug:</label>
+                                <label for="slug" class="col-sm-2 col-form-label">Url ของหลักสูตร</label>
                                 <div class="col-sm-3">
-                                    <input type="text" id="slug" class="form-control" name="slug"
-                                        value="{{ course[10] }}">
+                                    <input type="text" id="slug" class="form-control" name="slug" placeholder="กรอก Url"
+                                        value="{{ course[8] }}">
                                 </div>
                             </div>
 
                             <!-- Status -->
                             <div class="form-group row">
-                                <label for="status" class="col-sm-2 col-form-label">Status:</label>
+                                <label for="status" class="col-sm-2 col-form-label">สถานะ</label>
                                 <div class="col-sm-3">
                                     <select id="status" class="form-control custom-select" name="status">
-                                        <option selected disabled>Select Status</option>
-                                        <option value="PUBLISH" {% if course[11] == 'PUBLISH' %} selected {% endif %}>
+                                        <option selected disabled>เลือกสถานะ</option>
+                                        <option value="PUBLISH" {% if course[9] == 'PUBLISH' %} selected {% endif %}>
                                             PUBLISH</option>
-                                        <option value="DRAFT" {% if course[11] == 'DRAFT' %} selected {% endif %}>DRAFT
+                                        <option value="DRAFT" {% if course[9] == 'DRAFT' %} selected {% endif %}>DRAFT
                                         </option>
                                     </select>
                                 </div>
                             </div>
 
-                            <!-- Certificate -->
-                            <div class="form-group row">
-                                <label for="certificate" class="col-sm-2 col-form-label">Certificate:</label>
-                                <div class="col-sm-1">
-                                    <input type="text" id="certificate" class="form-control" name="certificate"
-                                        value="{{ course[12] }}">
-                                </div>
-                            </div>
 
                             <!-- Action buttons -->
                             <div class="col-12">
-                                <a href="/course_table" class="btn btn-secondary">Cancel</a>
-                                <input type="submit" value="Update Course" class="btn btn-success float-right">
+                                <a href="/course_table" class="btn btn-secondary">ยกเลิก</a>
+                                <input type="submit" value="อัปเดตข้อมูลคอร์ส" class="btn btn-success float-right">
                             </div>
                         </form>
                     </div>
@@ -162,6 +164,33 @@
         </div>
     </section>
 </div>
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function () {
+        function validateFileInput(fileInput) {
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif']; // เพิ่มประเภทไฟล์อื่น ๆ หากต้องการ
+            const file = fileInput.files[0];
+            if (file) {
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                if (!allowedExtensions.includes(fileExtension)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ประเภทไฟล์ไม่ถูกต้อง',
+                        text: 'กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง (JPEG/JPG/PNG/GIF)',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    fileInput.value = ""; // เคลียร์ข้อมูลในฟิลด์
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        document.getElementById('featured_image').addEventListener('change', function () {
+            validateFileInput(this);
+        });
+    });
+</script>
 
 {% include 'components/footer_dashboard.html' %}
 {% endblock %}

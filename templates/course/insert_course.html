@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Course Add{% endblock %}
+{% block title %}เพิ่มหลักสูตร{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -10,7 +10,7 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1>Add Course</h1>
+                    <h1>จัดการข้อมูลหลักสูตร/Course</h1>
                 </div>
             </div>
         </div>
@@ -21,7 +21,7 @@
             <div class="col-md-12">
                 <div class="card card">
                     <div class="card-header">
-                        <h3 class="card-title">ฟอร์มเพิ่มคอร์สเรียน/Course</h3>
+                        <h3 class="card-title">ฟอร์มเพิ่มหลักสูตร/Course</h3>
                         <div class="card-tools">
                             <button type="button" class="btn btn-tool" data-card-widget="collapse" title="Collapse">
                                 <i class="fas fa-minus"></i>
@@ -29,30 +29,31 @@
                         </div>
                     </div>
                     <div class="card-body" style="display: block;">
-                        <form action="{{ url_for('insert_course') }}" method="POST" enctype="multipart/form-data">
+                        <form action="{{ url_for('insert_course') }}" method="POST" id="courseForm" enctype="multipart/form-data">
                             <div class="form-group row">
-                                <label for="featured_image" class="col-sm-2 col-form-label">Featured image:</label>
+                                <label for="featured_image" class="col-sm-2 col-form-label">รูปภาพหลักสูตร</label>
                                 <div class="col-sm-3">
                                     <input type="file" class="form-control" id="featured_image" name="featured_image">
                                 </div>
                             </div>
                             <div class="form-group row">
-                                <label for="featured_video" class="col-sm-2 col-form-label">Featured video:</label>
+                                <label for="featured_video" class="col-sm-2 col-form-label">วิดีโอแนะนำหลักสูตร</label>
                                 <div class="col-sm-2">
-                                    <input type="text" class="form-control" id="featured_video" name="featured_video">
+                                    <input type="text" class="form-control" id="featured_video" name="featured_video" placeholder="กรอกรหัสของวิดีโอ">
+                                    <span style="margin-right: 10px; color:red; font-size:small;">*www.youtube.com/watch?v=......</span>
                                 </div>
                             </div>
                             <div class="form-group row">
-                                <label for="title" class="col-sm-2 col-form-label">Title:</label>
+                                <label for="title" class="col-sm-2 col-form-label">ชื่อหลักสูตร</label>
                                 <div class="col-sm-2">
-                                    <input type="text" class="form-control" id="title" name="title">
+                                    <input type="text" class="form-control" id="title" name="title" placeholder="กรอกชื่อ">
                                 </div>
                             </div>
                             <div class="form-group row">
-                                <label for="instructor_id" class="col-sm-2 col-form-label">Instructor:</label>
+                                <label for="instructor_id" class="col-sm-2 col-form-label">ผู้สอน</label>
                                 <div class="col-sm-3">
                                     <select id="instructor_id" class="form-control custom-select" name="instructor_id">
-                                        <option selected="" disabled="">Select instructor</option>
+                                        <option selected="" disabled="">เลือกผู้สอน</option>
                                         {% for instructor in instructor %}
                                         <option value="{{ instructor[0] }}">{{ instructor[1] }} {{ instructor[2] }}
                                         </option>
@@ -61,10 +62,10 @@
                                 </div>
                             </div>
                             <div class="form-group row">
-                                <label for="category_id" class="col-sm-2 col-form-label">Category:</label>
+                                <label for="category_id" class="col-sm-2 col-form-label">หมวดหมู่</label>
                                 <div class="col-sm-3">
                                     <select id="category_id" class="form-control custom-select" name="category_id">
-                                        <option selected disabled>Select category</option>
+                                        <option selected disabled>เลือกหมวดหมู่</option>
                                         {% for category in categories %}
                                         <option value="{{ category[0] }}">{{ category[2] }}</option>
                                         {% endfor %}
@@ -73,32 +74,20 @@
                             </div>
 
                             <div class="form-group row">
-                                <label for="description" class="col-sm-2 col-form-label">Course Description:</label>
+                                <label for="description" class="col-sm-2 col-form-label">คำอธิบายรายวิชา</label>
                                 <div class="col-sm-4">
                                     <textarea id="description" class="form-control" rows="5"
-                                        name="description"></textarea>
+                                        name="description" placeholder="กรอคำอธิบาย"></textarea>
                                 </div>
-                            </div>                            
+                            </div>                                                       
                             <div class="form-group row">
-                                <label for="language" class="col-sm-2 col-form-label">Language:</label>
-                                <div class="col-sm-1">
-                                    <input type="text" id="language" class="form-control" name="language">
-                                </div>
-                            </div>
-                            <div class="form-group row">
-                                <label for="deadline" class="col-sm-2 col-form-label">Deadline:</label>
+                                <label for="slug" class="col-sm-2 col-form-label">Url ของหลักสูตร</label>
                                 <div class="col-sm-3">
-                                    <input type="text" id="deadline" class="form-control" name="deadline">
+                                    <input type="text" id="slug" class="form-control" name="slug" placeholder="กรอก Url">
                                 </div>
                             </div>
                             <div class="form-group row">
-                                <label for="slug" class="col-sm-2 col-form-label">Slug:</label>
-                                <div class="col-sm-3">
-                                    <input type="text" id="slug" class="form-control" name="slug">
-                                </div>
-                            </div>
-                            <div class="form-group row">
-                                <label for="status" class="col-sm-2 col-form-label">Status:</label>
+                                <label for="status" class="col-sm-2 col-form-label">สถานะ</label>
                                 <div class="col-sm-1">
                                     <select id="status" class="form-control custom-select" name="status">
                                         <option selected="" disabled="">--------</option>
@@ -106,17 +95,11 @@
                                         <option value="DRAFT">DRAFT</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="form-group row">
-                                <label for="certificate" class="col-sm-2 col-form-label">Certificate:</label>
-                                <div class="col-sm-1">
-                                    <input type="text" id="certificate" class="form-control" name="certificate">
-                                </div>
-                            </div>
+                            </div>                           
                             <!-- Add more fields as necessary -->
                             <div class="col-12">
-                                <a href="/course_table" class="btn btn-secondary">Cancel</a>
-                                <input type="submit" value="Create new Course" class="btn btn-success float-right">
+                                <a href="/course_table" class="btn btn-secondary">ยกเลิก</a>
+                                <input type="submit" value="เพิ่มคอร์สเรียน" class="btn btn-success float-right">
                             </div>
                         </form>
                     </div>
@@ -126,6 +109,67 @@
         </div>
     </section>
 </div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#courseForm').on('submit', function (e) {
+            e.preventDefault(); // ป้องกันการรีเฟรชหน้าจอ
+
+            $.ajax({
+                type: 'POST',
+                url: "{{ url_for('insert_course') }}",
+                data: new FormData(this),
+                contentType: false,
+                processData: false,
+                success: function (response) {
+                    if (response.status === 'success') {
+                        Swal.fire({
+                            title: response.message,
+                            icon: 'success',
+                        }).then(() => {
+                            window.location.href = "{{ url_for('course_table') }}";
+                        });
+                    } else {
+                        Swal.fire({
+                            text: response.text,
+                            title: response.message,
+                            icon: response.status,
+                        });
+                    }
+                },
+                error: function (xhr, status, error) {
+                    Swal.fire({
+                        title: 'เกิดข้อผิดพลาด',
+                        text: xhr.responseText || 'An unexpected error occurred',
+                        icon: 'error',
+                    });
+                }
+            });
+        });
+    });
+</script>
+
+
+<script>
+    $(document).ready(function () {
+        // File type validation
+        $("#featured_image").change(function () {
+            var file = this.files[0];
+            var imagefile = file.type;
+            var match = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
+            if (!((imagefile == match[0]) || (imagefile == match[1]) || (imagefile == match[2]) || (imagefile == match[3]))) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ประเภทไฟล์ไม่ถูกต้อง',
+                    text: 'กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง (JPEG/JPG/PNG/GIF)',
+                });
+                $("#featured_image").val('');
+                return false;
+            }
+        });
+    });
+</script>
 
 {% include 'components/footer_dashboard.html' %}
 {% endblock %}

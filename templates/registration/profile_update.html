@@ -2,7 +2,7 @@
 {% block title %}Profile Update{% endblock %}
 {% block content %}
 {% include 'components/header.html' %}
-{% include 'components/modals.html' %}
+
 
 <!-- PAGE TITLE -->
 <header class="py-8 py-md-11" style="background-image: none;">
@@ -11,7 +11,7 @@
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb breadcrumb-scroll justify-content-center">
                 <li class="breadcrumb-item">
-                    <a class="text-gray-800" href="#">
+                    <a class="text-gray-800" href="{{ url_for('home') }}">
                         Home
                     </a>
                 </li>
@@ -71,7 +71,8 @@
                     <div class="form-group mb-4">
                         <label for="password">Password</label>
                         <input type="password" class="form-control" id="password"
-                            placeholder="Fill Only If You Want To Change Password" name="password">
+                            placeholder="โปรดใส่รหัสเดิมหรือรหัสใหม่" name="password">
+                        <span style="margin-right: 10px; color:red; font-size:small">*รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร, มีพิมพ์ใหญ่, พิมพ์เล็ก และตัวเลข</span>
                     </div>
                 </div>
                 {% if current_user.role == 'user' %}
@@ -107,22 +108,107 @@
 </div>
 
 <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function () {
+        function validateFileInput(fileInput) {
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif']; // เพิ่มประเภทไฟล์อื่น ๆ หากต้องการ
+            const file = fileInput.files[0];
+            if (file) {
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                if (!allowedExtensions.includes(fileExtension)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ประเภทไฟล์ไม่ถูกต้อง',
+                        text: 'กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง (JPEG/JPG/PNG/GIF)',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    fileInput.value = ""; // เคลียร์ข้อมูลในฟิลด์
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // ตรวจสอบถ้ามี adminimage บนหน้าแล้วค่อยเพิ่ม event listener
+        const userImageInput = document.getElementById('userimage');
+        if (userImageInput) {
+            userImageInput.addEventListener('change', function () {
+                validateFileInput(this);
+            });
+        }
+
+        // ตรวจสอบถ้ามี adminimage บนหน้าแล้วค่อยเพิ่ม event listener
+        const adminImageInput = document.getElementById('adminimage');
+        if (adminImageInput) {
+            adminImageInput.addEventListener('change', function () {
+                validateFileInput(this);
+            });
+        }
+
+        // ตรวจสอบถ้ามี instructorimage บนหน้าแล้วค่อยเพิ่ม event listener
+        const instructorImageInput = document.getElementById('instructorimage');
+        if (instructorImageInput) {
+            instructorImageInput.addEventListener('change', function () {
+                validateFileInput(this);
+            });
+        }
+    });
+</script>
+
+<script type="text/javascript">
+    let initialFormData = {};
+    let hasChanges = false;
+
+    // เก็บข้อมูลเริ่มต้นเมื่อโหลดหน้า
+    function storeInitialData() {
+        const form = document.getElementById('profileForm');
+        const formData = new FormData(form);
+        formData.forEach((value, key) => {
+            initialFormData[key] = value;
+        });
+    }
+
+    // ฟังก์ชันตรวจสอบการเปลี่ยนแปลง
+    function checkChanges() {
+        const form = document.getElementById('profileForm');
+        const formData = new FormData(form);
+
+        for (let [key, value] of formData.entries()) {
+            if (initialFormData[key] !== value) {
+                hasChanges = true;
+                break;
+            }
+        }
+    }
+
+    // เรียกใช้ฟังก์ชันตรวจสอบการเปลี่ยนแปลงเมื่อข้อมูลในฟอร์มเปลี่ยน
+    document.getElementById('profileForm').addEventListener('change', checkChanges);
+
     function confirmUpdate() {
         Swal.fire({
-            title: "Do you want to save the changes?",
+            title: "คุณต้องการบันทึกการเปลี่ยนแปลงหรือไม่?",
             showDenyButton: true,
             showCancelButton: true,
-            confirmButtonText: "Save",
-            denyButtonText: `Don't save`
+            confirmButtonText: "บันทึก",
+            denyButtonText: `ไม่บันทึก`
         }).then((result) => {
             if (result.isConfirmed) {
-                document.getElementById('profileForm').submit();
+                if (hasChanges) {
+                    document.getElementById('profileForm').submit();
+                } else {
+                    Swal.fire("ไม่มีการเปลี่ยนแปลง", "ไม่จำเป็นต้องบันทึก", "info");
+                }
             } else if (result.isDenied) {
-                Swal.fire("Changes are not saved", "", "info");
+                Swal.fire("การเปลี่ยนแปลงจะไม่ถูกบันทึก", "", "info");
             }
         });
     }
+
+    // เรียกใช้ฟังก์ชันนี้เมื่อโหลดหน้าเพื่อเก็บข้อมูลเริ่มต้น
+    document.addEventListener('DOMContentLoaded', storeInitialData);
 </script>
+
+
+
 
 {% include 'components/footer.html' %}
 {% endblock %}

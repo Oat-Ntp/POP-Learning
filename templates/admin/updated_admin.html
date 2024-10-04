@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Edit Admin{% endblock %}
+{% block title %}แก้ไขผู้ดูแลระบบ{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -25,9 +25,11 @@
                 <ul class="flashes">
                     {% for category, message in messages %}
                     <script type="text/javascript">
-                        Swal.fire({
-                            title: "{{ message }}",
-                            icon: "{{ category }}",
+                        document.addEventListener("DOMContentLoaded", function () {
+                            Swal.fire({
+                                title: "{{ message }}",
+                                icon: "{{ category }}",                          
+                            });
                         });
                     </script>
                     {% endfor %}
@@ -39,66 +41,73 @@
                     <input type="hidden" id="id" name="id" value="{{ admin[0] }}">
 
                     <div class="form-group row">
-                        <label for="first_name" class="col-sm-2 col-form-label">First name</label>
+                        <label for="first_name" class="col-sm-2 col-form-label">ชื่อจริง</label>
                         <div class="col-sm-2">
                             <input type="text" class="form-control" id="first_name" name="first_name"
-                                placeholder="Enter First Name" value="{{ admin[1] }}" required>
+                                placeholder="กรุณากรอกชื่อ" value="{{ admin[1] }}" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="last_name" class="col-sm-2 col-form-label">Last name</label>
+                        <label for="last_name" class="col-sm-2 col-form-label">นามสกุล</label>
                         <div class="col-sm-2">
                             <input type="text" class="form-control" id="last_name" name="last_name"
-                                placeholder="Enter Last Name" value="{{ admin[2] }}" required>
+                                placeholder="กรุณากรอกนามสกุล" value="{{ admin[2] }}" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="username" class="col-sm-2 col-form-label">Username</label>
+                        <label for="username" class="col-sm-2 col-form-label">ชื่อผู้ใช้</label>
                         <div class="col-sm-3">
                             <input type="text" class="form-control" id="username" name="username"
-                                placeholder="Enter Username" value="{{ admin[3] }}" required>
+                                placeholder="กรอกชื่อผู้ใช้" value="{{ admin[3] }}" >
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="email" class="col-sm-2 col-form-label">Email</label>
+                        <label for="email" class="col-sm-2 col-form-label">อีเมล์</label>
                         <div class="col-sm-3">
-                            <input type="email" class="form-control" id="email" name="email" placeholder="Enter Email"
+                            <input type="email" class="form-control" id="email" name="email" placeholder="กรอกอีเมล์"
                                 value="{{ admin[4] }}" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="tel" class="col-sm-2 col-form-label">เบอร์โทร (Telephone)</label>
+                        <label for="tel" class="col-sm-2 col-form-label">เบอร์โทร</label>
                         <div class="col-sm-2">
-                            <input type="text" class="form-control" id="tel" name="tel" placeholder="Enter Telephone"
+                            <input type="text" class="form-control" id="tel" name="tel" placeholder="กรอกเบอร์โทร"
                                 value="{{ admin[5] }}" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="birth" class="col-sm-2 col-form-label">Birth Day</label>
+                        <label for="birth" class="col-sm-2 col-form-label">วันเกิด</label>
                         <div class="col-sm-2">
                             <input type="date" class="form-control" id="birth" name="birth"
-                                placeholder="Enter Birth Day" value="{{ admin[6] }}" required>
+                                placeholder="วันเกิด" value="{{ admin[6] }}" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="gender" class="col-sm-2 col-form-label">Gender</label>
+                        <label for="gender" class="col-sm-2 col-form-label">เพศ</label>
                         <div class="col-sm-2">
                             <select id="gender" name="gender" class="form-control form-select" aria-label="Gender select">
-                                <option disabled value="">--Please choose an option--</option>
-                                <option value="Male" {% if admin[8] == 'Male' %}selected{% endif %}>Male</option>
-                                <option value="Female" {% if admin[8] == 'Female' %}selected{% endif %}>Female</option>
+                                <option disabled value="">--โปรดเลือกตัวเลือก--</option>
+                                <option value="Male" {% if admin[8] == 'Male' %}selected{% endif %}>ชาย</option>
+                                <option value="Female" {% if admin[8] == 'Female' %}selected{% endif %}>หญิง</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="adminimage" class="col-sm-2 col-form-label">Choose Images:</label>
+                        <label for="adminimage" class="col-sm-2 col-form-label">ภาพโปรไฟล์ (ผู้ดูแลระบบ)</label>
                         <div class="col-sm-3">
-                            <input type="file" class="form-control" id="adminimage" name="adminimage">
+                            {% if admin[11] %}
+                                    <span style="margin-right: 10px;">ภาพเก่า</span>
+                                    <div>
+                                        <img src="{{ url_for('static', filename=admin[11]) }}" alt="Admin Image" style="width: 100px; height: auto;">
+                                    </div>
+                                    <span style="margin-right: 10px; color:red;">*เลือกใหม่ทุกครั้งที่อัปเดต</span>
+                            {% endif %}
+                            <input type="file" class="form-control" id="adminimage" name="adminimage" required>
                         </div>
                     </div>
                     <div class="form-group row">
                         <div class="col-sm-10 offset-sm-2">
-                            <button type="submit" class="btn btn-primary">Update Admin</button>
+                            <button type="submit" class="btn btn-primary">อัปเดตข้อมูลแอดมิน</button>
                         </div>
                     </div>
                 </form>
@@ -106,23 +115,30 @@
         </div>
     </section>
 </div>
-<script>
-    $(document).ready(function () {
-        // File type validation
-        $("#fileInput").change(function () {
-            var fileLength = this.files.length;
-            var match = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
-            var i;
-            for (i = 0; i < fileLength; i++) {
-                var file = this.files[i];
-                var imagefile = file.type;
-                if (!((imagefile == match[0]) || (imagefile == match[1]) || (imagefile == match[2]) || (
-                        imagefile == match[3]))) {
-                    alert('Please select a valid image file (JPEG/JPG/PNG/GIF).');
-                    $("#fileInput").val('');
+
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function () {
+        function validateFileInput(fileInput) {
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif']; // เพิ่มประเภทไฟล์อื่น ๆ หากต้องการ
+            const file = fileInput.files[0];
+            if (file) {
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                if (!allowedExtensions.includes(fileExtension)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ประเภทไฟล์ไม่ถูกต้อง',
+                        text: 'กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง (JPEG/JPG/PNG/GIF)',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    fileInput.value = ""; // เคลียร์ข้อมูลในฟิลด์
                     return false;
                 }
             }
+            return true;
+        }
+
+        document.getElementById('adminimage').addEventListener('change', function () {
+            validateFileInput(this);
         });
     });
 </script>

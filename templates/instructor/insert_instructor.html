@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Insert Instructor{% endblock %}
+{% block title %}เพิ่มผู้สอน{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -9,7 +9,7 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1>จัดการข้อมูลผู้ดูแลระบบ/Instructor</h1>
+                    <h1>จัดการข้อมูลผู้สอน/Instructor</h1>
                 </div>
             </div>
         </div>
@@ -42,73 +42,68 @@
                 {% endwith %}
                 <form method="post" action="{{ url_for('insert_instructor') }}" enctype="multipart/form-data" id="profileForm">
                     <div class="form-group row">
-                        <label for="first_name" class="col-sm-2 col-form-label">First name</label>
+                        <label for="first_name" class="col-sm-2 col-form-label">ชื่อจริง</label>
                         <div class="col-sm-3">
-                            <input type="text" class="form-control" id="first_name" placeholder="Enter First Name"
+                            <input type="text" class="form-control" id="first_name" placeholder="กรุณากรอกชื่อ"
                                 name="first_name" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="last_name" class="col-sm-2 col-form-label">Last name</label>
+                        <label for="last_name" class="col-sm-2 col-form-label">นามสกุล</label>
                         <div class="col-sm-3">
-                            <input type="text" class="form-control" id="last_name" placeholder="Enter Last Name"
+                            <input type="text" class="form-control" id="last_name" placeholder="กรุณากรอกนามสกุล"
                                 name="last_name" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="username" class="col-sm-2 col-form-label">Username</label>
-                        <div class="col-sm-2">
-                            <input type="text" class="form-control" id="username" placeholder="Enter username"
+                        <label for="username" class="col-sm-2 col-form-label">ชื่อผู้ใช้</label>
+                        <div class="col-sm-3">
+                            <input type="text" class="form-control" id="username" placeholder="กรอกชื่อผู้ใช้"
                                 name="username" required>
+                            <span style="margin-right: 10px; color:red; font-size:small">*ชื่อผู้ใช้จะต้องประกอบด้วยตัวอักษรและตัวเลขเท่านั้น!</span>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="email" class="col-sm-2 col-form-label">Email</label>
-                        <div class="col-sm-4">
-                            <input type="email" class="form-control" id="email" placeholder="Enter email"
+                        <label for="email" class="col-sm-2 col-form-label">อีเมล์</label>
+                        <div class="col-sm-3">
+                            <input type="email" class="form-control" id="email" placeholder="กรอกอีเมล์"
                                 name="email" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="password" class="col-sm-2 col-form-label">Password</label>
+                        <label for="password" class="col-sm-2 col-form-label">รหัสผ่าน</label>
                         <div class="col-sm-3">
-                            <input type="password" class="form-control" id="password" placeholder="Enter Password"
+                            <input type="password" class="form-control" id="password" placeholder="กรอกรหัส"
                                 name="password" required>
+                            <span style="margin-right: 10px; color:red; font-size:small">*รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร, มีพิมพ์ใหญ่, พิมพ์เล็ก และตัวเลข</span>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="tel" class="col-sm-2 col-form-label">เบอร์โทร (Telephone)</label>
+                        <label for="tel" class="col-sm-2 col-form-label">เบอร์โทร</label>
                         <div class="col-sm-3">
-                            <input type="text" class="form-control" id="tel" placeholder="Enter Telephone"
+                            <input type="text" class="form-control" id="tel" placeholder="กรอกเบอร์โทร"
                                 name="tel" required>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="birth" class="col-sm-2 col-form-label">Birth Day</label>
-                        <div class="col-sm-3">
-                            <input type="date" class="form-control" id="birth" name="birth"
-                                placeholder="Birth Day" required>
-                        </div>
-                    </div>
-                    <div class="form-group row">
-                        <label for="gender" class="col-sm-2 col-form-label">Gender</label>
+                        <label for="gender" class="col-sm-2 col-form-label">เพศ</label>
                         <div class="col-sm-2">
                             <select id="gender" name="gender" class="form-control form-select" aria-label="Gender select" required>
-                                <option selected disabled value="">--Please choose an option--</option>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
+                                <option selected disabled value="">--กรุณาเลือกตัวเลือก--</option>
+                                <option value="Male">ชาย</option>
+                                <option value="Female">หญิง</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="instructorimage" class="col-sm-2 col-form-label">Choose Images:</label>
+                        <label for="instructorimage" class="col-sm-2 col-form-label">เลือกภาพ</label>
                         <div class="col-sm-3">
-                            <input type="file" class="form-control" id="instructorimage" name="instructorimage">
+                            <input type="file" class="form-control" id="instructorimage" name="instructorimage" required>
                         </div>
                     </div>
                     <div class="form-group row">
                         <div class="col-sm-10 offset-sm-2">
-                            <button type="submit" class="btn btn-success">Add instructor</button>
+                            <button type="submit" class="btn btn-success">เพิ่มข้อมูลผู้สอน</button>
                         </div>
                     </div>
                 </form>
@@ -116,6 +111,67 @@
         </div>
     </section>
 </div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#profileForm').on('submit', function (e) {
+            e.preventDefault(); // ป้องกันการรีเฟรชหน้าจอ
+
+            $.ajax({
+                type: 'POST',
+                url: "{{ url_for('insert_instructor') }}",
+                data: new FormData(this),
+                contentType: false,
+                processData: false,
+                success: function (response) {
+                    if (response.status === 'success') {
+                        Swal.fire({
+                            title: response.message,
+                            icon: 'success',
+                        }).then(() => {
+                            window.location.href = "{{ url_for('instructor_table') }}";
+                        });
+                    } else {
+                        Swal.fire({
+                            title: response.message,
+                            icon: response.status,
+                        });
+                    }
+                },
+                error: function (xhr, status, error) {
+                    Swal.fire({
+                        title: 'เกิดข้อผิดพลาด',
+                        text: xhr.responseText || 'An unexpected error occurred',
+                        icon: 'error',
+                    });
+                }
+            });
+        });
+    });
+</script>
+
+
+<script>
+    $(document).ready(function () {
+        // File type validation
+        $("#instructorimage").change(function () {
+            var file = this.files[0];
+            var imagefile = file.type;
+            var match = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
+            if (!((imagefile == match[0]) || (imagefile == match[1]) || (imagefile == match[2]) || (imagefile == match[3]))) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ประเภทไฟล์ไม่ถูกต้อง',
+                    text: 'กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง (JPEG/JPG/PNG/GIF)',
+                });
+                $("#instructorimage").val('');
+                return false;
+            }
+        });
+    });
+</script>
 
 {% include 'components/footer_dashboard.html' %}
 {% endblock %}

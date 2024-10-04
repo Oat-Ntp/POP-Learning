@@ -10,7 +10,7 @@
     <div class="container-fluid">
       <div class="row mb-2">
         <div class="col-sm-6">
-          <h1 class="m-0">Dashboard || Instructor</h1>
+          <h1 class="m-0">แดชบอร์ด || อาจารย์ผู้สอน</h1>
           <!-- Script for SweetAlert -->
           {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
@@ -47,72 +47,103 @@
     <div class="row">
       <div class="col-lg-3 col-6">
 
-        <div class="small-box bg-info">
+        <div class="small-box bg-success">
           <div class="inner">
-            <h3>{{ total_attempts }}</h3>
-            <p>ผู้สอบ (ครั้ง)</p>
+            <h3>{{ total_students_successfully }}</h3>
+            <p>ผู้เรียนที่เรียนสำเร็จ</p>
           </div>
           <div class="icon">
-            <i class="fa fa-users"></i>
+            <i class="fa fa-user-check"></i>
           </div>
-          <a href="/attempts_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+          <a href="/course_enroll_student" class="small-box-footer">รายละเอียด <i class="fas fa-arrow-circle-right"></i></a>
         </div>
       </div>
 
       <div class="col-lg-3 col-6">
 
-        <div class="small-box bg-success">
+        <div class="small-box bg-olive">
+          <div class="inner">
+            <h3>{{ total_students_studying }}</h3>
+            <p>ผู้เรียนที่กำลังเรียนอยู่</p>
+          </div>
+          <div class="icon">
+            <i class="fa fa-chalkboard-teacher">‌</i>
+          </div>
+          <a href="/course_enroll_student" class="small-box-footer">รายละเอียด <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-6">
+
+        <div class="small-box bg-info">
           <div class="inner">
             <h3>{{ course_count }}<sup style="font-size: 20px"></sup></h3>
-            <p>วิชา (รายการ)</p>
+            <p>หลักสูตร (รายการ)</p>
           </div>
           <div class="icon">
             <i class="fa fa-book"></i>
           </div>
-          <a href="/course_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+          <a href="/course_table" class="small-box-footer">รายละเอียด <i class="fas fa-arrow-circle-right"></i></a>
         </div>
       </div>
 
       <div class="col-lg-3 col-6">
 
-        <div class="small-box bg-danger">
+        <div class="small-box bg-primary">
           <div class="inner">
-            <h3>{{ quiz_count }}</h3>
-            <p>แบบทดสอบ (ข้อ)</p>
+            <h3>{{ total_students  }}</h3>
+            <p>ผู้เรียนทั้งหมด</p>
           </div>
           <div class="icon">
-            <i class="fas fa-window-restore"></i>
+            <i class="fa fa-users"></i>
           </div>
-          <a href="/quiz_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+          <a href="/course_enroll_student" class="small-box-footer">รายละเอียด <i class="fas fa-arrow-circle-right"></i></a>
         </div>
       </div>
 
-      <div class="col-lg-3 col-6">
-
-        <div class="small-box bg-warning">
-          <div class="inner">
-            <h3>{{ total_questions }}</h3>
-            <p>การทำข้อสอบทั้งหมด (ข้อ)</p>
-          </div>
-          <div class="icon">
-            <i class="fas fa-table"></i>
-          </div>
-          <a href="/attempts_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
-      </div>
+      
     </div>
     <a class="day btn btn-outline-success"><i class="fa fa-signal"></i> รายวัน</a>
     <a class="month btn btn-outline-danger"><i class="fa fa-signal"></i> รายเดือน</a>
     <a class="year btn btn-outline-info"><i class="fa fa-signal"></i> รายปี</a>
-
+    <style>
+      .charts-container {
+        display: flex;
+        flex-wrap: wrap;
+      }
+    
+      .highcharts-figure {
+        margin: 1%; /* Add margin to separate the figures */
+      }
+    
+      @media (max-width: 768px) {
+        .col-lg-6, .col-lg-6 {
+          width: 100%;
+        }
+      }
+    </style>
+    
     <!-- Highcharts container -->
-    <figure class="highcharts-figure" style="margin-top: 3%;">
-      <div id="container"></div>
-      <p class="highcharts-description">
-        .
-      </p>
-    </figure>
-
+    <div class="charts-container row" style="margin-top: 3%;">
+      <!-- First chart with 8 columns -->
+      <div class="col-lg-6">
+        <figure class="highcharts-figure">
+          <div id="container" style="width:100%; height: 400px;"></div>
+          <p class="highcharts-description">
+          </p>
+        </figure>
+      </div>
+    
+      <!-- Second chart with 4 columns -->
+      <div class="col-lg-6">
+        <figure class="highcharts-figure">
+          <div id="container1" style="width:100%; height: 400px;"></div>
+          <p class="highcharts-description"></p>
+        </figure>
+      </div>
+    </div>
+    
+   
     <!-- Highcharts scripts -->
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://code.highcharts.com/modules/data.js"></script>
@@ -120,6 +151,73 @@
     <script src="https://code.highcharts.com/modules/exporting.js"></script>
     <script src="https://code.highcharts.com/modules/export-data.js"></script>
     <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+          // Prepare the data for Highcharts
+          const preTestScores = {{ pre_test_score | tojson }};
+          const postTestScores = {{ post_test_score | tojson }};
+          
+          // Extract course titles and scores
+          const categories = preTestScores.map(score => score.name);
+          const preTestData = preTestScores.map(score => parseFloat(score.y));
+          const postTestData = postTestScores.map(score => parseFloat(score.y));
+
+  
+          console.log(categories);
+          console.log(preTestData);
+          console.log(postTestData);
+  
+          Highcharts.chart('container1', {
+              chart: {
+                  type: 'bar'
+              },
+              title: {
+                  text: 'คะแนนเฉลี่ย Pre-Test และ Post-Test แต่ละหลักสูตร'
+              },
+              xAxis: {
+                  categories: categories,
+                  title: {
+                      text: null
+                  },
+                  gridLineWidth: 1,
+                  lineWidth: 0
+              },
+              yAxis: {
+                  min: 0,
+                  title: {
+                      text: 'คะแนนเฉลี่ย (คะแนน)',
+                      align: 'high'
+                  },
+                  labels: {
+                      overflow: 'justify'
+                  },
+                  gridLineWidth: 0
+              },
+              tooltip: {
+                  valueSuffix: ' คะแนน'
+              },
+              plotOptions: {
+                  bar: {
+                      borderRadius: '50%',
+                      dataLabels: {
+                          enabled: true
+                      },
+                      groupPadding: 0.1
+                  }
+              },
+              series: [{
+                  name: 'Pre-Test',
+                  data: preTestData
+              }, {
+                  name: 'Post-Test',
+                  data: postTestData
+              }]
+          });
+      });
+  </script>
+  
+  
 
     <!-- Create the chart -->
     <script type="text/javascript">

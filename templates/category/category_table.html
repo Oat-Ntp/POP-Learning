@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Category Management{% endblock %}
+{% block title %}การจัดการหมวดหมู่{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -10,7 +10,7 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1>Category Management</h1>
+                    <h1>การจัดการหมวดหมู่</h1>
                 </div>
             </div>
         </div>
@@ -22,9 +22,9 @@
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <h1 class="card-title">หมวดหมู่
+                            <h1 class="card-title">เพิ่มหมวดหมู่
                                 <a class="btn btn-success btn-sm" href="/insert_category">
-                                    <i class="fa fa-plus"></i> Add
+                                    <i class="fa fa-plus"></i>
                                 </a>
                             </h1>
                             {% with messages = get_flashed_messages(with_categories=true) %}
@@ -50,25 +50,25 @@
                                 <thead>
                                     <tr class="table-info">
                                         <th style="width: 2%">No.</th>
-                                        <th style="width: 5%">Name</th>
-                                        <th style="width: 10%">Icon</th>
-                                        <th style="width: 3%">แก้ไข</th>
-                                        <th style="width: 3%">ลบ</th>
+                                        <th style="width: 5%">ชื่อหมวดหมู่</th>
+                                        <th style="width: 10%">รหัสไอคอน</th>
+                                        <th style="width: 3%; text-align: center;">แก้ไข</th>
+                                        <th style="width: 3%; text-align: center;">ลบ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for category in data %}
                                     <tr>
-                                        <td>{{ loop.index }}</td>  
+                                        <td align="center">{{ loop.index }}</td>  
                                         <td>{{ category[2] }}</td>
                                         <td>{{ category[1] }}</td>                                      
                                         <td align="center"><a class="btn btn-warning btn-sm"
                                                 href="/edit_category/{{category[0]}}">
-                                                <i class="fas fa-pencil-alt"></i> Edit
+                                                <i class="fas fa-pencil-alt"></i>
                                             </a></td>
                                         <td align="center"><a class="btn btn-danger btn-sm"
                                                 href="/delete_category/{{category[0]}}">
-                                                <i class="fas fa-trash"></i> Delete
+                                                <i class="fas fa-trash"></i>
                                             </a></td>
                                     </tr>
                                     {% endfor %}
@@ -110,23 +110,50 @@
 <!-- Page specific script -->
 <script>
     $(function () {
-        $("#example1").DataTable({
-            "responsive": true,
-            "lengthChange": true,
-            "autoWidth": false,
-            "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
-        }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
-        $('#example2').DataTable({
-            "paging": true,
-            "lengthChange": false,
-            "searching": false,
-            "ordering": true,
-            "info": true,
-            "autoWidth": false,
-            "responsive": true,
-        });
+      $("#example1").DataTable({
+        "responsive": true,
+        "lengthChange": true,
+        "autoWidth": false,
+        "buttons": [
+          {
+            extend: "copy",
+            exportOptions: {
+              columns: ':visible' // ให้คัดลอกเฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          {
+            extend: "csv",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "excel",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "print",
+            exportOptions: {
+              columns: ':visible' // ให้พิมพ์เฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          "colvis" // ปุ่ม colvis สำหรับการแสดง/ซ่อนคอลัมน์
+        ]
+      }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
+  
+      $('#example2').DataTable({
+        "paging": true,
+        "lengthChange": false,
+        "searching": false,
+        "ordering": true,
+        "info": true,
+        "autoWidth": false,
+        "responsive": true,
+      });
     });
-</script>
+  </script>
 </body>
 
 {% include 'components/footer_dashboard.html' %}

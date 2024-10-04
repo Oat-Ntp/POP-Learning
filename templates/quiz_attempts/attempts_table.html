@@ -44,7 +44,8 @@
                                     <tr class="table-info">
                                         <th style="width: 3%">No.</th>
                                         <th style="width: 10%">ชื่อ-สกุล</th>
-                                        <th style="width: 10%">แบบทดสอบ</th>
+                                        <th style="width: 10%">คอร์ส</th>
+                                        
                                         <th style="width: 10%">บทเรียน</th>
                                         <th style="width: 5%">ว/ด/ป</th>
                                         <th style="width: 3%">เปิดดู</th>
@@ -53,33 +54,18 @@
                                 <tbody>
                                     {% for attempts in data %}
                                     <tr>
-                                        <td>{{ loop.index }}</td> 
-                                        <td>
-                                            {% for user in user_data %}
-                                                {% if user[0] == attempts[1] %}
-                                                    {{ user[1] }} {{ user[2] }}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>  
-                                        <td>
-                                            {% for quiz in quiz_data %}
-                                                {% if quiz[0] == attempts[2] %}
-                                                    {{ quiz[1] }}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <td>
-                                            {% for lesson in lesson_data %}
-                                                {% if lesson[0] == attempts[3] %}
-                                                    {{ lesson[1] }}
-                                                {% endif %}
-                                            {% endfor %}
-                                        </td>
-                                        <td>{{ attempts[5] }}</td>
-                                        <td align="center"><a class="btn btn-info btn-sm"
-                                            href="/view_attempts/{{ attempts[0] }}">
-                                            <i class="fa fa-eye"></i> View
-                                        </td>                                                                             
+                                        <td align="center">{{ loop.index }}</td> 
+                                        <td>{{ attempts[3] }}</td>  
+                                        <td>{{ attempts[4] }}</td>  
+                                        
+                                        <td>{{ attempts[6] }}</td>   
+                                        <td>{{ attempts[8] }}</td>
+                                        <td align="center">
+                                          <a class="btn btn-info btn-sm" href="/view_attempts/{{ attempts[1] }}/{{ attempts[9] }}">
+                                              <i class="fa fa-eye"></i>
+                                          </a>
+                                      </td>
+                                                                                                                   
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -120,23 +106,50 @@
 <!-- Page specific script -->
 <script>
     $(function () {
-        $("#example1").DataTable({
-            "responsive": true,
-            "lengthChange": true,
-            "autoWidth": false,
-            "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
-        }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
-        $('#example2').DataTable({
-            "paging": true,
-            "lengthChange": false,
-            "searching": false,
-            "ordering": true,
-            "info": true,
-            "autoWidth": false,
-            "responsive": true,
-        });
+      $("#example1").DataTable({
+        "responsive": true,
+        "lengthChange": true,
+        "autoWidth": false,
+        "buttons": [
+          {
+            extend: "copy",
+            exportOptions: {
+              columns: ':visible' // ให้คัดลอกเฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          {
+            extend: "csv",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "excel",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "print",
+            exportOptions: {
+              columns: ':visible' // ให้พิมพ์เฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          "colvis" // ปุ่ม colvis สำหรับการแสดง/ซ่อนคอลัมน์
+        ]
+      }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
+  
+      $('#example2').DataTable({
+        "paging": true,
+        "lengthChange": false,
+        "searching": false,
+        "ordering": true,
+        "info": true,
+        "autoWidth": false,
+        "responsive": true,
+      });
     });
-</script>
+  </script>
 </body>
 
 {% include 'components/footer_dashboard.html' %}

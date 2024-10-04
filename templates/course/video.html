@@ -27,7 +27,7 @@
     </div>
 </header>
 
-<div class="position-absolute right-0 left-0 top-0 bottom-0" style="margin-top: 5%;">
+<div class="position-absolute right-0 left-0 top-0 bottom-0 d-none d-md-block" style="margin-top: 5%;">
     <div class="cs-parallax">
         <div class="cs-parallax-layer" data-depth="0.1">
             <img class="img-fluid" src="/static/img/parallax/layer-01.svg" alt="Layer">
@@ -92,9 +92,9 @@
 
             <h3 class="text-white">Course Description</h3>
             {% if video and video.video_description %}
-            <p class="mb-6 line-height-md">{{ video.video_description[:245] }}</p>
+            <p class="mb-6 line-height-md">{{ video.video_description[:148] }}</p>
 
-            <p class="collapse mb-6 line-height-md" id="readcollapseExample">{{ video.video_description[245:3000] }}</p>
+            <p class="collapse mb-6 line-height-md" id="readcollapseExample">{{ video.video_description[148:3000] }}</p>
             {% else %}
             <p>Description not available.</p>
             {% endif %}
@@ -146,48 +146,52 @@
     var player;
     var hasWatchedVideo = false;
     var userId = '{{ current_user.id if current_user.is_authenticated else '' | tojson | safe }}';
-    // Embed the data passed from Flask
     var next_element = {{ next_element|tojson }};
     var video = {{ video|tojson }};
 
-    function goNextLession(){
-        if ( video.passed == 1 ){
+    function goNextLession() {
+        if (video.passed == 1) {
             var nextPageUrl;
 
-            if (next_element.element_type == 'video'){
-                var nextPageUrl = "{{ url_for('watch_video', slug=video.slug, video_id=next_element.element_id) }}";
-            } else if (next_element.element_type == 'quiz'){
-                var nextPageUrl = "{{ url_for('take_quiz', slug=video.slug, quiz_id=next_element.element_id) }}";
-            }else{
-                alert('invalid element type')
-                return
+            if (next_element.element_type == 'video') {
+                nextPageUrl = "{{ url_for('watch_video', slug=video.slug, video_id=next_element.element_id) }}";
+            } else if (next_element.element_type == 'quiz') {
+                nextPageUrl = "{{ url_for('take_quiz', slug=video.slug, quiz_id=next_element.element_id) }}";
+            } else {
+                alert('invalid element type');
+                return;
             }
             window.location.href = nextPageUrl;
-        }else{
+        } else {
             Swal.fire({
                 title: 'บนเรียนยังไม่จบ!',
-                text: `คุณต้องดูวิดีโอของบทเรียนนี้ให้จบเพื่อยังไปบทเรียนต่อไป`,
+                text: 'คุณต้องดูวิดีโอของบทเรียนนี้ให้จบเพื่อยังไปบทเรียนต่อไป',
                 icon: 'warning',
                 confirmButtonText: 'OK',
-            })
+            });
         }
     }
 
-
     if (userId) {
         function onYouTubeIframeAPIReady() {
+            var playerVars = {
+                'controls': 1,
+                'disablekb': 1,
+                'rel': 0,
+                'modestbranding': 1,
+                'start': getStartPoint(),
+                'vq': 'hd1080'
+            };
+
+            if (!video.passed) {
+                playerVars['controls'] = 0;
+            }
+
             player = new YT.Player('player', {
                 height: '100%',
                 width: '100%',
                 videoId: '{{ video.youtube_link }}',
-                playerVars: {
-                    'controls': 1,
-                    'disablekb': 1,
-                    'rel': 0,
-                    'modestbranding': 1,
-                    'start': getStartPoint(),
-                    'vq': 'hd1080'
-                },
+                playerVars: playerVars,
                 events: {
                     'onStateChange': onPlayerStateChange,
                     'onReady': onPlayerReady
@@ -200,44 +204,73 @@
             if (savedTime) {
                 player.seekTo(parseFloat(savedTime));
             }
-            setInterval(updateProgressBar, 1000);
 
+            setInterval(updateProgressBar, 1000);
+        
             var volumeSlider = document.getElementById('volume-slider');
             volumeSlider.addEventListener('input', function() {
                 player.setVolume(volumeSlider.value);
             });
 
-            // เรียก /start_video เมื่อเริ่มเล่นวิดีโอ
             startVideo();
+            startReminderTimer();
+        }
+        
+        function startReminderTimer() {
+            setTimeout(function() {
+                if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
+                    player.pauseVideo();
+                    Swal.fire({
+                        title: 'การแจ้งเตือน!',
+                        text: 'กรุณาดูวิดีโอต่อเพื่อความสำเร็จของบทเรียนนี้',
+                        icon: 'info',
+                        confirmButtonText: 'OK'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            player.playVideo();
+                            startReminderTimer();
+                        }
+                    });
+                }
+            }, 180000);
         }
 
         function onPlayerStateChange(event) {
+            if (event.data == YT.PlayerState.PLAYING) {
+                player.setPlaybackQuality('hd1080');
+                console.log('Current quality:', player.getPlaybackQuality());
+            }
             if (event.data == YT.PlayerState.ENDED) {
                 hasWatchedVideo = true;
                 document.getElementById('progress-bar').style.width = '100%';
                 document.getElementById('progress-bar').textContent = '100%';
                 document.getElementById('progress-bar').classList.add('bg-success');
                 sendVideoStatus()
-                .then(response => response.json())
-                .then(data => {
-                    if (data.next_video_unlocked) {
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.next_video_unlocked) {
+                            video.passed = 1;
+                            localStorage.removeItem('videoTime_' + userId + '_{{ video.youtube_link }}');
 
-                        video.passed = 1
-                        localStorage.removeItem('videoTime_' + userId + '_{{ video.youtube_link }}');
-                        
-                        Swal.fire({
-                            title: 'Video Complete!',
-                            text: 'You have finished watching the video. You can now proceed or watch again.',
-                            icon: 'success',
-                            confirmButtonText: 'Go Next lession !!'
-                        }).then(result => {
-                            goNextLession()
-                        });
-                    }
-                })
-                .catch((error) => {
-                    console.error('Error:', error);
-                });
+                            Swal.fire({
+                                title: 'วิดีโอเสร็จสมบูรณ์!',
+                                text: 'คุณดูวิดีโอจบแล้ว ตอนนี้คุณสามารถดำเนินการต่อหรือดูอีกครั้ง',
+                                icon: 'success',
+                                showCancelButton: true,
+                                confirmButtonText: 'ไปที่บทเรียนถัดไป',
+                                cancelButtonText: 'ดูอีกครั้ง'
+                            }).then(result => {
+                                if (result.isConfirmed) {
+                                    goNextLession();
+                                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                                    watchAgain();
+                                }
+                            });
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
             }
         }
 
@@ -256,7 +289,7 @@
         function preventNavigation(event) {
             if (!hasWatchedVideo) {
                 event.preventDefault();
-                event.returnValue = 'You need to watch the entire video before leaving this page.';
+                event.returnValue = 'คุณต้องดูวิดีโอทั้งหมดก่อนที่จะออกจากหน้านี้';
             }
         }
 
@@ -275,8 +308,8 @@
             document.getElementById('progress-bar').textContent = '0%';
             document.getElementById('progress-bar').classList.remove('bg-success');
             Swal.fire({
-                title: 'Watch Again!',
-                text: 'Enjoy watching the video again.',
+                title: 'ดูอีกครั้ง!',
+                text: 'สนุกกับการดูวิดีโออีกครั้ง',
                 icon: 'info',
                 confirmButtonText: 'OK'
             });
@@ -313,25 +346,20 @@
                     lesson_id: '{{ lesson_id }}',
                     status: 'completed'
                 })
-            })
+            });
         }
-
-
     } else {
         console.error('User ID is undefined.');
     }
     
     $(document).ready(function() {
-        
-
-
         $('#nextBtn').on('click', function() {
-            goNextLession()
+            goNextLession();
         });
-    
-
     });
 </script>
+
+
 
 <style>
 .progress {

@@ -9,7 +9,7 @@
     <div class="container-fluid">
       <div class="row mb-2">
         <div class="col-sm-6">
-          <h1 class="m-0">Dashboard || Admin</h1>
+          <h1 class="m-0">แดชบอร์ด || ผู้ดูแลระบบ</h1>
           {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
           <ul class="flashes">
@@ -48,12 +48,12 @@
         <div class="small-box bg-info">
           <div class="inner">
             <h3>{{ total_users }}</h3>
-            <p>Total User</p>
+            <p>ผู้ใช้ทั้งหมด</p>
           </div>
           <div class="icon">
             <i class="fa fa-users"></i>
           </div>
-          <a href="user_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+          <a href="/user_table" class="small-box-footer">รายละเอียด <i class="fas fa-arrow-circle-right"></i></a>
         </div>
       </div>
 
@@ -62,51 +62,82 @@
         <div class="small-box bg-success">
           <div class="inner">
             <h3>{{ total_enroll }}</h3>
-            <p>Enroll Course</p>
+            <p>ลงทะเบียนเรียนหลักสูตร</p>
           </div>
           <div class="icon">
             <i class="fa fa-book"></i>
           </div>
-          <a href="enroll_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+          <a href="/course_enroll_student" class="small-box-footer">รายละเอียด <i class="fas fa-arrow-circle-right"></i></a>
         </div>
       </div>
 
       <!-- Quiz -->
       <div class="col-lg-3 col-6">
-        <div class="small-box bg-danger">
+        <div class="small-box bg-olive">
           <div class="inner">
-            <h3>{{ total_quiz }}</h3>
-            <p>Quiz</p>
+            <h3>{{ total_course }}</h3>
+            <p>หลักสูตรทั้งหมด</p>
           </div>
           <div class="icon">
             <i class="fas fa-window-restore"></i>
           </div>
-          <a href="quiz_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+          <a href="/course_table" class="small-box-footer">รายละเอียด <i class="fas fa-arrow-circle-right"></i></a>
         </div>
       </div>
 
       <!-- Admin -->
       <div class="col-lg-3 col-6">
-        <div class="small-box bg-warning">
+        <div class="small-box bg-info">
           <div class="inner">
             <h3>{{ total_instructor }}</h3>
-            <p>Total Instructor</p>
+            <p>อาจารย์ผู้สอนทั้งหมด</p>
           </div>
           <div class="icon">
             <i class="fa fa-user"></i>
           </div>
-          <a href="instructor_table" class="small-box-footer">More info <i class="fas fa-arrow-circle-right"></i></a>
+          <a href="/instructor_table" class="small-box-footer">รายละเอียด <i class="fas fa-arrow-circle-right"></i></a>
         </div>
       </div>
     </div>
 
+    <a class="day btn btn-outline-success"><i class="fa fa-signal"></i> รายวัน</a>
+    <a class="month btn btn-outline-danger"><i class="fa fa-signal"></i> รายเดือน</a>
+    <a class="year btn btn-outline-info"><i class="fa fa-signal"></i> รายปี</a>
+
+    <style>
+      .charts-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+      }
+    
+      .highcharts-figure {
+        width: 48%; /* Adjust width as needed */
+        margin: 1%; /* Add margin to separate the figures */
+      }
+
+      @media (max-width: 768px) {
+        .highcharts-figure {
+          width: 100%;
+        }
+      }
+    </style>
+    
     <!-- Highcharts container -->
-    <figure class="highcharts-figure" style="margin-top: 3%;">
-      <div id="container"></div>
-      <p class="highcharts-description">
-        .
-      </p>
-    </figure>
+    <div class="charts-container">
+      <figure class="highcharts-figure" style="margin-top: 3%;">
+        <div id="container"></div>
+        <p class="highcharts-description">
+          
+        </p>
+      </figure>
+      <figure class="highcharts-figure" style="margin-top: 3%;">
+        <div id="container1"></div>
+        <p class="highcharts-description">
+          
+        </p>
+      </figure>
+    </div>
 
     <!-- Highcharts scripts -->
     <script src="https://code.highcharts.com/highcharts.js"></script>
@@ -116,10 +147,138 @@
     <script src="https://code.highcharts.com/modules/export-data.js"></script>
     <script src="https://code.highcharts.com/modules/accessibility.js"></script>
 
+    <script type="text/javascript">
+      document.addEventListener('DOMContentLoaded', function () {
+        // Function to initialize the chart
+        function initializeChart(data) {
+          Highcharts.chart('container', {
+            chart: {
+              type: 'column'
+            },
+            title: {
+              align: 'center',
+              text: 'จำนวนการเข้าเรียนแยกตามวัน'
+            },
+            subtitle: {
+              align: 'center',
+              text: 'นับจำนวนแยกตามรายวิชา'
+            },
+            accessibility: {
+              announceNewData: {
+                enabled: true
+              }
+            },
+            xAxis: {
+              type: 'category'
+            },
+            yAxis: {
+              title: {
+                text: 'จำนวนการเข้าเรียน (ครั้ง)'
+              }
+            },
+            legend: {
+              enabled: false
+            },
+            plotOptions: {
+              series: {
+                borderWidth: 0,
+                dataLabels: {
+                  enabled: true,
+                  format: '<span style="color:blue">{point.y} ครั้ง</span>'
+                }
+              }
+            },
+            tooltip: {
+              headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
+              pointFormat: '<span style="color:{point.color}">{point.name}</span>: ' +
+                '<b>{point.y} ครั้ง</b> of total<br/>'
+            },
+            series: [{
+              name: 'จำนวนการเข้าเรียน',
+              colorByPoint: true,
+              data: data,
+            }],
+          });
+        }
+      
+        // Initial chart data (daily data)
+        initializeChart({{ chart_enroll_list_daily | tojson | safe }});
+      
+        // Function to update chart based on button click
+        function updateChart(data, titleText, subtitleText) {
+          Highcharts.chart('container', {
+            chart: {
+              type: 'column'
+            },
+            title: {
+              align: 'center',
+              text: titleText
+            },
+            subtitle: {
+              align: 'center',
+              text: subtitleText
+            },
+            accessibility: {
+              announceNewData: {
+                enabled: true
+              }
+            },
+            xAxis: {
+              type: 'category'
+            },
+            yAxis: {
+              title: {
+                text: 'จำนวนการเข้าเรียน (ครั้ง)'
+              }
+            },
+            legend: {
+              enabled: false
+            },
+            plotOptions: {
+              series: {
+                borderWidth: 0,
+                dataLabels: {
+                  enabled: true,
+                  format: '<span style="color:blue">{point.y} ครั้ง</span>'
+                }
+              }
+            },
+            tooltip: {
+              headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
+              pointFormat: '<span style="color:{point.color}">{point.name}</span>: ' +
+                '<b>{point.y} ครั้ง</b> of total<br/>'
+            },
+            series: [{
+              name: 'จำนวนการเข้าเรียน',
+              colorByPoint: true,
+              data: data,
+            }],
+          });
+        }
+      
+        // Button click event handlers
+        document.querySelector('.day').addEventListener('click', function (e) {
+          e.preventDefault();
+          updateChart({{ chart_enroll_list_daily | tojson | safe }}, 'จำนวนการเข้าเรียนแยกตามวัน', 'นับจำนวนแยกตามรายวิชา');
+        });
+      
+        document.querySelector('.month').addEventListener('click', function (e) {
+          e.preventDefault();
+          updateChart({{ chart_enroll_list_monthly | tojson | safe }}, 'จำนวนการเข้าเรียนแยกตามเดือน', 'นับจำนวนแยกตามรายวิชา');
+        });
+      
+        document.querySelector('.year').addEventListener('click', function (e) {
+          e.preventDefault();
+          updateChart({{ chart_enroll_list_yearly | tojson | safe }}, 'จำนวนการเข้าเรียนแยกตามปี', 'นับจำนวนแยกตามรายวิชา');
+        });
+      
+      });
+    </script>
+
     <!-- Create the chart -->
     <script type="text/javascript">
     document.addEventListener('DOMContentLoaded', function () {
-      Highcharts.chart('container', {
+      Highcharts.chart('container1', {
         chart: {
           type: 'column'
         },
@@ -152,14 +311,14 @@
             borderWidth: 0,
             dataLabels: {
               enabled: true,
-              format: '<span style="color:blue">{point.y} รายการ</span>'
+              format: '<span style="color:blue">{point.y} คน</span>'
             }
           }
         },
         tooltip: {
           headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
           pointFormat: '<span style="color:{point.color}">{point.name}</span>: ' +
-            '<b>{point.y} รายการ</b> of total<br/>'
+            '<b>{point.y} คน</b> of total<br/>'
         },
         series: [{
           name: 'จำนวนการเข้าเรียนวิชา',

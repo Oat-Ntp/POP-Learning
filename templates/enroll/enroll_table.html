@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}รายชื่อผู้เรียน{% endblock %}
+{% block title %}รายชื่อเข้าผู้เรียน{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -10,7 +10,7 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1>รายชื่อผู้เรียน</h1>
+                    <h1>รายชื่อเข้าผู้เรียน/ติดตามการเรียน</h1>
                 </div>
             </div>
         </div>
@@ -21,44 +21,60 @@
             <div class="row">
                 <div class="col-12">
                     <div class="card">                          
-                            {% with messages = get_flashed_messages(with_categories=true) %}
-                            {% if messages %}
-                            <ul class="flashes">
-                                {% for category, message in messages %}
-                                <script type="text/javascript">
-                                    document.addEventListener("DOMContentLoaded", function () {
-                                        Swal.fire({
-                                            title: "{{ message }}",
-                                            icon: "{{ 'success' if category == 'success' else 'error' }}",
-                                        });
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                        <ul class="flashes">
+                            {% for category, message in messages %}
+                            <script type="text/javascript">
+                                document.addEventListener("DOMContentLoaded", function () {
+                                    Swal.fire({
+                                        title: "{{ message }}",
+                                        icon: "{{ 'success' if category == 'success' else 'error' }}",
                                     });
-                                </script>
-                                {% endfor %}
-                            </ul>
-                            {% endif %}
-                            {% endwith %}
+                                });
+                            </script>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        {% endwith %}
                         <!-- /.card-header -->
                         <div class="card-body">
                             <table id="example1" class="table table-bordered table-striped table-sm">
                                 <thead>
                                     <tr class="table-info">
-                                        <th style="width: 3%">No.</th>
+                                        <th style="width: 1%">No.</th>
                                         <th style="width: 10%">ชื่อ-สกุล</th>
                                         <th style="width: 10%">เข้าเรียนคอร์ส</th>
-                                        <th style="width: 5%">ว/ด/ป</th>
+                                        <th style="width: 10%">วันที่ลงทะเบียนเรียน</th>
+                                        <th style="width: 20%; text-align: center;">แบบทดสอบที่ยังไม่ได้ทำ</th>
+                                        <th style="width: 20%; text-align: center;">วิดีโอที่ยังไม่ได้ดู</th>
+                                        <th style="width: 10%">วันที่เรียนสำเร็จ</th>
+                                        <th style="width: 5%; text-align: center;">ดูใบเซอร์</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for enroll in data %}
+                                    {% for enroll in enrollments %}
                                     <tr>
-                                        <td>{{ loop.index }}</td> 
+                                        <td align="center">{{ loop.index }}</td> 
                                         <td>
                                             {% for user in user_data %}
                                                 {% if user[0] == enroll[1] %}
                                                     {{ user[1] }} {{ user[2] }}
                                                 {% endif %}
                                             {% endfor %}
-                                        </td>  
+                                            <div class="progress">
+                                                <div class="progress-bar{% if progress_data[enroll[1]]['progress_percentage'] == 100 %} completed{% endif %}" 
+                                                    role="progressbar" 
+                                                    style="width: {{ progress_data[enroll[1]]['progress_percentage'] }}%;" 
+                                                    aria-valuenow="{{ progress_data[enroll[1]]['progress_percentage'] }}" aria-valuemin="0" aria-valuemax="100">
+                                                    {% if progress_data[enroll[1]]['progress_percentage'] == 100 %}
+                                                        Success
+                                                    {% else %}
+                                                        {{ progress_data[enroll[1]]['progress_percentage'] }}%
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>                                                                                
                                         <td>
                                             {% for course in course_data %}
                                                 {% if course[0] == enroll[2] %}
@@ -66,7 +82,65 @@
                                                 {% endif %}
                                             {% endfor %}
                                         </td>
-                                        <td>{{ enroll[3] }}</td>                                                                             
+                                        <td>{{ enroll[3] }}</td>
+                                        <td>
+                                            {% set progress = pending_data[(enroll[1], enroll[2])] %}
+                                            {% if progress.pending_quizzes %}
+                                                <ul>
+                                                    {% for quiz in progress.pending_quizzes %}
+                                                        <li>
+                                                            แบบทดสอบ: {{ quiz[1] }} <br>
+                                                            (บทเรียน: {{ quiz[3] }})
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <div style="text-align: center;">
+                                                    <button type="button" class="btn btn-success btn-sm"  style="border-radius: 100px;">ทำครบแล้ว</button>                                                  
+                                                    </p>
+                                                </div>                                              
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if progress.pending_videos %}
+                                                <ul>
+                                                    {% for video in progress.pending_videos %}
+                                                        <li>
+                                                            วิดีโอ: {{ video[1] }} <br>
+                                                            (บทเรียน: {{ video[3] }})
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                            <div style="text-align: center;">
+                                                <button type="button" class="btn btn-success btn-sm"  style="border-radius: 100px;">เรียนครบแล้ว</button>                                                  
+                                                </p>
+                                            </div> 
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if enroll[4] %}
+                                                {{ enroll[4] }}
+                                            {% else %}
+                                                <div style="text-align: center;">
+                                                    <button type="button" class="btn btn-danger btn-sm" style="border-radius: 100px;">
+                                                        ยังเรียนไม่เสร็จ
+                                                    </button>
+                                                </div>
+                                            {% endif %}
+                                        </td>
+                                        
+                                        <td align="center">
+                                            {% if not progress.pending_quizzes and not progress.pending_videos %}
+                                            <a id="downloadCertificateBtn" 
+                                                data-user-id="{{ enroll[1] }}" 
+                                                data-enroll-id="{{ enroll[0] }}" 
+                                                data-course-id="{{ enroll[2] }}" 
+                                                class="btn btn-info btn-sm">
+                                                <i class="fa fa-eye"></i>
+                                            </a>                                     
+                                            {% endif %}
+                                        </td>                                    
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -104,27 +178,102 @@
 <script src="/static/plugins/datatables-buttons/js/buttons.colVis.min.js"></script>
 <!-- AdminLTE App -->
 <script src="/static/dist/js/adminlte.min.js"></script>
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <!-- Page specific script -->
 <script>
     $(function () {
-        $("#example1").DataTable({
-            "responsive": true,
-            "lengthChange": true,
-            "autoWidth": false,
-            "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
-        }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
-        $('#example2').DataTable({
-            "paging": true,
-            "lengthChange": false,
-            "searching": false,
-            "ordering": true,
-            "info": true,
-            "autoWidth": false,
-            "responsive": true,
+      $("#example1").DataTable({
+        "responsive": true,
+        "lengthChange": true,
+        "autoWidth": false,
+        "buttons": [
+          {
+            extend: "copy",
+            exportOptions: {
+              columns: ':visible' // ให้คัดลอกเฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          {
+            extend: "csv",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "excel",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "print",
+            exportOptions: {
+              columns: ':visible' // ให้พิมพ์เฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          "colvis" // ปุ่ม colvis สำหรับการแสดง/ซ่อนคอลัมน์
+        ]
+      }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
+  
+      $('#example2').DataTable({
+        "paging": true,
+        "lengthChange": false,
+        "searching": false,
+        "ordering": true,
+        "info": true,
+        "autoWidth": false,
+        "responsive": true,
+      });
+    });
+
+    $(document).on('click', '#downloadCertificateBtn', function() {
+        var userId = $(this).data('user-id');  // Get user_id of the user
+        var enrollId = $(this).data('enroll-id');  // Get enroll_id
+        var courseId = $(this).data('course-id');  // Get course_id
+    
+        if (!userId || !enrollId) {
+            console.error('User ID or Enroll ID is not defined.');
+            return;
+        }
+        
+        const certificateUrl = `/generate_certificate?user_id=${userId}&enroll_id=${enrollId}`;
+        // Send request to the server to generate the certificate
+        
+        Swal.fire({
+            text: 'ผู้ใช้ได้สำเร็จคอร์สนี้แล้ว!',
+            iconHtml: `<div>🎓</div>`,
+            html: `<p>ผู้ใช้ได้ผ่านการทดสอบทั้งหมดเรียบร้อยแล้ว!</p>
+                    <a href="${certificateUrl}" download="certificate.png">
+                        <img src="${certificateUrl}" alt="Certificate" style="width:100%;max-width:1400px;"/>
+                    </a>
+                    <div class="d-flex justify-content-end mt-4">
+                        <a href="${certificateUrl}" download="certificate.png" class="btn btn-success mx-2 btn-sm">
+                            ดาวน์โหลดเกียรติบัตร
+                        </a>
+                        <a href="/enroll_table/${courseId}" class="btn btn-secondary mx-2 btn-sm" data-dismiss="modal">
+                            ปิด
+                        </a>
+                    </div>`,
+            showConfirmButton: false,
+            width: '700px'
         });
     });
+    
 </script>
-</body>
 
+<style>
+    .progress-bar {
+        background-color: #007bff; /* สีเริ่มต้น */
+        transition: background-color 0.3s ease;
+        color: white; /* สีข้อความเริ่มต้น */
+        text-align: center; /* จัดข้อความให้อยู่กลาง */
+    }
+    
+    .progress-bar.completed {
+        background-color: green; /* เปลี่ยนสีเมื่อถึง 100% */
+    }
+    
+</style>
 {% include 'components/footer_dashboard.html' %}
 {% endblock %}

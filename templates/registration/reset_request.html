@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Reset Password{% endblock %}
+{% block content %}
+<header class="py-8 py-md-11" style="background-image: none;">
+    <div class="container text-center py-xl-2">
+        <div class="text-center mt-4">
+            <img class="img-fluid" src="/static/img/logo/logo POP2.png" alt="Login Image" style="width: 150px; height: auto;">
+        </div>
+        <h1 class="display-4 fw-semi-bold mb-0">Forgot Password</h1>
+        <!-- <nav aria-label="breadcrumb">
+            <ol class="breadcrumb breadcrumb-scroll justify-content-center">
+                <li class="breadcrumb-item">
+                    <a class="text-gray-800" href="{{ url_for('home') }}">
+                        Home
+                    </a>
+                </li>
+                <li class="breadcrumb-item text-gray-800 active" aria-current="page">
+                    Forgot Password
+                </li>
+            </ol>
+        </nav> -->
+    </div>
+    <img class="d-none img-fluid" src="..." alt="...">
+</header>
+
+<div class="container mb-11">
+    <div class="row gx-0">
+        <div class="col-md-7 col-xl-4 mx-auto">
+            <h3 class="mb-6">Log In to Your POP Learning Account!</h3>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="alert">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            <form method="post" action="{{ url_for('reset_request') }}">
+                {{ form.hidden_tag() }}
+                <div class="form-group mb-5">
+                    <label>{{ form.email.label }}</label>
+                    {{ form.email(class_='form-control login_input') }}
+                </div>
+                <button class="btn btn-block btn-primary" type="submit">
+                    SEND CONFIRMATION LINK
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

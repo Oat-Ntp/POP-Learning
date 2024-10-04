@@ -25,75 +25,117 @@
                 <ul class="flashes">
                     {% for category, message in messages %}
                     <script type="text/javascript">
-                        Swal.fire({
-                            title: "{{ message }}",
-                            icon: "{{ category }}",
+                        document.addEventListener("DOMContentLoaded", function () {
+                            Swal.fire({
+                                title: "{{ message }}",
+                                icon: "{{ category }}",                          
+                            });
                         });
                     </script>
                     {% endfor %}
                 </ul>
                 {% endif %}
                 {% endwith %}
-                <form method="post" action="{{ url_for('updated_question', id=question[0]) }}" id="quizForm">
+                <form method="post" action="{{ url_for('updated_question', id=question[0]) }}" enctype="multipart/form-data" id="quizForm">
                     <input type="hidden" id="id" name="id" value="{{ question[0] }}">
                     <div id="quiz1">
                         <div class="form-group row">
-                            <label for="score" class="col-sm-2 col-form-label">Score</label>
+                            <label for="score" class="col-sm-2 col-form-label">คะแนน</label>
                             <div class="col-sm-1">
-                                <input type="number" class="form-control" id="score" name="score" placeholder="0" value="{{ question[2] }}" required>
+                                <input type="number" class="form-control" id="score" name="score" placeholder="คะแนน" value="{{ question[2] }}" required>
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="question_name" class="col-sm-2 col-form-label">Question</label>
+                            <label for="question_name" class="col-sm-2 col-form-label">คำถาม</label>
                             <div class="col-sm-4">
                                 <input type="text" class="form-control" id="question_name" name="question_name"
-                                    placeholder="คำถาม" value="{{ question[3] }}" required>
+                                    placeholder="คำถาม" value="{{ question[3] }}">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="choice_a" class="col-sm-2 col-form-label">Choice A</label>
+                            <label for="question_image" class="col-sm-2 col-form-label">ภาพคำถาม</label>
+                            <div class="col-sm-3">
+                                {% if question[9] %}
+                                    <span style="margin-right: 10px;">ภาพเก่า</span>
+                                    <div>
+                                        <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[9]) }}" alt="Question Image" style="width: 100px; height: auto;">
+                                    </div>
+                                {% endif %}
+                                <input type="file" class="form-control mt-2" id="question_image" name="question_image">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_a" class="col-sm-2 col-form-label">ตัวเลือก A</label>
                             <div class="col-sm-3">
                                 <input type="text" class="form-control" id="choice_a" name="choice_a"
-                                    placeholder="ตัวเลือกที่ 1" value="{{ question[4] }}" required>
+                                    placeholder="ตัวเลือกที่ 1" value="{{ question[4] }}">
+                                {% if question[10] %}
+                                    <span style="margin-right: 10px;">ภาพเก่า</span>
+                                    <div>
+                                        <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[10]) }}" alt="Choice A Image" style="width: 100px; height: auto;">
+                                    </div>
+                                {% endif %}
+                                <input type="file" class="form-control mt-2" id="choice_a_image" name="choice_a_image">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="choice_b" class="col-sm-2 col-form-label">Choice B</label>
+                            <label for="choice_b" class="col-sm-2 col-form-label">ตัวเลือก B</label>
                             <div class="col-sm-3">
                                 <input type="text" class="form-control" id="choice_b" name="choice_b"
-                                    placeholder="ตัวเลือกที่ 2" value="{{ question[5] }}" required>
+                                    placeholder="ตัวเลือกที่ 2" value="{{ question[5] }}">
+                                {% if question[11] %}
+                                    <span style="margin-right: 10px;">ภาพเก่า</span>
+                                    <div>
+                                        <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[11]) }}" alt="Choice B Image" style="width: 100px; height: auto;">
+                                    </div>
+                                {% endif %}
+                                <input type="file" class="form-control mt-2" id="choice_b_image" name="choice_b_image">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="choice_c" class="col-sm-2 col-form-label">Choice C</label>
+                            <label for="choice_c" class="col-sm-2 col-form-label">ตัวเลือก C</label>
                             <div class="col-sm-3">
                                 <input type="text" class="form-control" id="choice_c" name="choice_c"
-                                    placeholder="ตัวเลือกที่ 3" value="{{ question[6] }}" required>
+                                    placeholder="ตัวเลือกที่ 3" value="{{ question[6] }}">
+                                {% if question[12] %}
+                                    <span style="margin-right: 10px;">ภาพเก่า</span>
+                                    <div>
+                                        <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[12]) }}" alt="Choice C Image" style="width: 100px; height: auto;">
+                                    </div>
+                                {% endif %}
+                                <input type="file" class="form-control mt-2" id="choice_c_image" name="choice_c_image">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="choice_d" class="col-sm-2 col-form-label">Choice D</label>
+                            <label for="choice_d" class="col-sm-2 col-form-label">ตัวเลือก D</label>
                             <div class="col-sm-3">
                                 <input type="text" class="form-control" id="choice_d" name="choice_d"
-                                    placeholder="ตัวเลือกที่ 4" value="{{ question[7] }}" required>
+                                    placeholder="ตัวเลือกที่ 4" value="{{ question[7] }}">
+                                {% if question[13] %}
+                                    <span style="margin-right: 10px;">ภาพเก่า</span>
+                                    <div>
+                                        <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[13]) }}" alt="Choice D Image" style="width: 100px; height: auto;">
+                                    </div>
+                                {% endif %}
+                                <input type="file" class="form-control mt-2" id="choice_d_image" name="choice_d_image">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="correct_answer" class="col-sm-2 col-form-label">Answer</label>
+                            <label for="correct_answer" class="col-sm-2 col-form-label">คำตอบ</label>
                             <div class="col-sm-3">
                                 <select class="form-control" id="correct_answer" name="correct_answer" required>
                                     <option selected disabled>--------</option>
-                                    <option value="a" {% if question[8] == 'a' %}selected{% endif %}>Choice A</option>
-                                    <option value="b" {% if question[8] == 'b' %}selected{% endif %}>Choice B</option>
-                                    <option value="c" {% if question[8] == 'c' %}selected{% endif %}>Choice C</option>
-                                    <option value="d" {% if question[8] == 'd' %}selected{% endif %}>Choice D</option>
+                                    <option value="a" {% if question[8] == 'a' %}selected{% endif %}>ตัวเลือก A</option>
+                                    <option value="b" {% if question[8] == 'b' %}selected{% endif %}>ตัวเลือก B</option>
+                                    <option value="c" {% if question[8] == 'c' %}selected{% endif %}>ตัวเลือก C</option>
+                                    <option value="d" {% if question[8] == 'd' %}selected{% endif %}>ตัวเลือก D</option>
                                 </select>
                             </div>
-                        </div>
+                        </div>                       
                     </div>
                     <div class="form-group row">
                         <div class="col-sm-10 offset-sm-2">
-                            <button type="submit" class="btn btn-primary" id="submitButton">Submit</button>
+                            <button type="submit" class="btn btn-primary" id="submitButton">อัปเดตคำถาม</button>
                         </div>
                     </div>
                 </form>
@@ -101,5 +143,43 @@
         </div>
     </section>
 </div>
+<script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function () {
+        function validateFileInput(fileInput) {
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif']; // เพิ่มประเภทไฟล์อื่น ๆ หากต้องการ
+            const file = fileInput.files[0];
+            if (file) {
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+                if (!allowedExtensions.includes(fileExtension)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ประเภทไฟล์ไม่ถูกต้อง',
+                        text: 'กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง (JPEG/JPG/PNG/GIF)',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    fileInput.value = ""; // เคลียร์ข้อมูลในฟิลด์
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        document.getElementById('question_image').addEventListener('change', function () {
+            validateFileInput(this);
+        });
+        document.getElementById('choice_a_image').addEventListener('change', function () {
+            validateFileInput(this);
+        });
+        document.getElementById('choice_b_image').addEventListener('change', function () {
+            validateFileInput(this);
+        });
+        document.getElementById('choice_c_image').addEventListener('change', function () {
+            validateFileInput(this);
+        });
+        document.getElementById('choice_d_image').addEventListener('change', function () {
+            validateFileInput(this);
+        });
+    });
+</script>
 {% include 'components/footer_dashboard.html' %}
 {% endblock %}

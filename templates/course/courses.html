@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Course{% endblock %}
+{% block title %}Courses{% endblock %}
 {% block content %}
 {% include 'components/header.html' %}
 {% include 'components/modals.html' %}
@@ -11,7 +11,7 @@
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb breadcrumb-scroll justify-content-center">
                 <li class="breadcrumb-item">
-                    <a class="text-gray-800" href="#">
+                    <a class="text-gray-800" href="{{ url_for('home') }}">
                         Home
                     </a>
                 </li>
@@ -75,6 +75,17 @@
                         <a href="{{ url_for('course_details', slug=course.slug) }}" class="d-block stretched-link">
                             <h4 class="line-clamp-2 h-md-48 h-lg-58 me-md-6 me-lg-10 me-xl-4 mb-2">{{ course.title }}
                             </h4>
+                            <div class="progress">
+                                <div class="progress-bar{% if course['progress_percentage'] == 100 %} completed{% endif %}" role="progressbar" 
+                                    style="width: {{ course['progress_percentage'] }}%;" 
+                                    aria-valuenow="{{ course['progress_percentage'] }}" aria-valuemin="0" aria-valuemax="100">
+                                    {% if course['progress_percentage'] == 100 %}
+                                        Success
+                                    {% else %}
+                                        {{ course['progress_percentage'] }}%
+                                    {% endif %}
+                                </div>
+                            </div>
                         </a>
 
                         <div class="d-lg-flex align-items-end flex-wrap mb-n1">
@@ -102,7 +113,7 @@
                                                 </svg>
 
                                             </div>
-                                            <div class="font-size-sm">5 lessons</div>
+                                            <div class="font-size-sm">{{ course['lesson_count'] }} lessons</div>
                                         </div>
                                     </li>
                                     <li class="nav-item px-3">
@@ -120,7 +131,7 @@
                                                 </svg>
 
                                             </div>
-                                            <div class="font-size-sm">8h 12m</div>
+                                            <div class="font-size-sm">{{ course['total_time_duration'] }} min</div>
                                         </div>
                                     </li>
                                 </ul>
@@ -141,5 +152,19 @@
 
     </div>
 </div>
+
+<style>
+    .progress-bar {
+        background-color: #007bff; /* สีเริ่มต้น */
+        transition: background-color 0.3s ease;
+        color: white; /* สีข้อความเริ่มต้น */
+        text-align: center; /* จัดข้อความให้อยู่กลาง */
+    }
+    
+    .progress-bar.completed {
+        background-color: green; /* เปลี่ยนสีเมื่อถึง 100% */
+    }
+    
+</style>
 {% include 'components/footer.html' %}
 {% endblock %}

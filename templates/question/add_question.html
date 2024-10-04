@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Add Question{% endblock %}
+{% block title %}เพิ่มคำถาม{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -40,72 +40,99 @@
                 </ul>
                 {% endif %}
                 {% endwith %}
-                <form method="post" action="{{ url_for('add_question', quiz_id=quiz_id) }}" id="quizForm">
+                <form method="post" action="{{ url_for('add_question', quiz_id=quiz_id) }}" enctype="multipart/form-data" id="quizForm">
                     <div id="quiz1">
                         <div class="form-group row">
-                            <label for="score" class="col-sm-2 col-form-label">Score</label>
+                            <label for="score" class="col-sm-2 col-form-label">คะแนน</label>
                             <div class="col-sm-1">
                                 <input type="number" class="form-control" id="score" name="score" placeholder="คะแนน"
                                     required>
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="question_name" class="col-sm-2 col-form-label">Question</label>
+                            <label for="question_name" class="col-sm-2 col-form-label">คำถาม</label>
                             <div class="col-sm-4">
                                 <input type="text" class="form-control" id="question_name" name="question_name"
-                                    placeholder="คำถาม" required>
+                                    placeholder="คำถาม">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="choice_a" class="col-sm-2 col-form-label">Choice A</label>
+                            <label for="question_image" class="col-sm-2 col-form-label">ภาพคำถาม</label>
+                            <div class="col-sm-4">
+                                <input type="file" class="form-control-file" id="question_image" name="question_image">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_a" class="col-sm-2 col-form-label">ตัวเลือก A</label>
                             <div class="col-sm-3">
                                 <input type="text" class="form-control" id="choice_a" name="choice_a"
-                                    placeholder="ตัวเลือกที่ A" required>
+                                    placeholder="ตัวเลือกที่ A">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="choice_b" class="col-sm-2 col-form-label">Choice B</label>
+                            <label for="choice_a_image" class="col-sm-2 col-form-label">เลือกภาพ A</label>
+                            <div class="col-sm-4">
+                                <input type="file" class="form-control-file" id="choice_a_image" name="choice_a_image">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_b" class="col-sm-2 col-form-label">ตัวเลือก B</label>
                             <div class="col-sm-3">
                                 <input type="text" class="form-control" id="choice_b" name="choice_b"
-                                    placeholder="ตัวเลือกที่ B" required>
+                                    placeholder="ตัวเลือกที่ B">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="choice_c" class="col-sm-2 col-form-label">Choice C</label>
+                            <label for="choice_b_image" class="col-sm-2 col-form-label">เลือกภาพ B</label>
+                            <div class="col-sm-4">
+                                <input type="file" class="form-control-file" id="choice_b_image" name="choice_b_image">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_c" class="col-sm-2 col-form-label">ตัวเลือก C</label>
                             <div class="col-sm-3">
                                 <input type="text" class="form-control" id="choice_c" name="choice_c"
-                                    placeholder="ตัวเลือกที่ C" required>
+                                    placeholder="ตัวเลือกที่ C">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="choice_d" class="col-sm-2 col-form-label">Choice D</label>
+                            <label for="choice_c_image" class="col-sm-2 col-form-label">เลือกภาพ C</label>
+                            <div class="col-sm-4">
+                                <input type="file" class="form-control-file" id="choice_c_image" name="choice_c_image">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="choice_d" class="col-sm-2 col-form-label">ตัวเลือก D</label>
                             <div class="col-sm-3">
                                 <input type="text" class="form-control" id="choice_d" name="choice_d"
-                                    placeholder="ตัวเลือกที่ D" required>
+                                    placeholder="ตัวเลือกที่ D">
                             </div>
                         </div>
                         <div class="form-group row">
-                            <label for="correct_answer" class="col-sm-2 col-form-label">Answer</label>
+                            <label for="choice_d_image" class="col-sm-2 col-form-label">เลือกภาพ D</label>
+                            <div class="col-sm-4">
+                                <input type="file" class="form-control-file" id="choice_d_image" name="choice_d_image">
+                            </div>
+                        </div>
+                        <div class="form-group row">
+                            <label for="correct_answer" class="col-sm-2 col-form-label">คำตอบ</label>
                             <div class="col-sm-3">
                                 <select class="form-control" id="correct_answer" name="correct_answer" required>
                                     <option selected disabled>--------</option>
-                                    <option value="a">Choice A</option>
-                                    <option value="b">Choice B</option>
-                                    <option value="c">Choice C</option>
-                                    <option value="d">Choice D</option>
+                                    <option value="a">ตัวเลือก A</option>
+                                    <option value="b">ตัวเลือก B</option>
+                                    <option value="c">ตัวเลือก C</option>
+                                    <option value="d">ตัวเลือก D</option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div class="form-group row">
                         <div class="col-sm-10 offset-sm-2">
-                            <button type="submit" class="btn btn-primary" id="submitButton">Submit</button>
+                            <button type="submit" class="btn btn-success" id="submitButton">เพิ่มคำถาม</button>
                         </div>
                     </div>
                 </form>
-
-
-
             </div>
             <div class="card-header">
                 <h3 class="card-title">รายการคำถาม/ตัวเลือก</h3>
@@ -115,7 +142,7 @@
                     <thead>
                         <tr class="table-info">
                             <th style="width: 5%">No.</th>                           
-                            <th style="width: 10%">IMG</th>                          
+                            <th style="width: 10%">รูปภาพ</th>                          
                             <th style="width: 70%">คำถาม/ตัวเลือก</th>
                             <th style="width: 3%">เฉลย</th>
                             <th style="width: 5%">คะแนน</th>
@@ -127,33 +154,99 @@
                         {% for question in data %}
                         <tr>
                             <td align="center">{{ loop.index }}</td>
-                            
+                            <td align="center">
+                                {% if question[8] %}
+                                    <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[8]) }}" alt="Question Image" style="width: 100px; height: auto;">
+                                {% endif %}
+
+                            </td>
                             <td>
-                                <div class="d-flex align-items-center">
-                                    <!-- <img src="{{ url_for('static', filename=question[8]) }}" class="rounded-circle"
-                                        alt="" style="width: 35px; height: 35px" /> -->
-                                    <div class="ms-3" style="margin-left: 10px;">
-                                        <p class="fw-bold mb-1">{{ question[] }}</p>
-                                    </div>
+                                <b>คำถาม : {{ question[2] }}</b>
+                                
+                                <!-- Choice A -->
+                                <div class="form-group">
+                                    {% if question[3] %}
+                                        <input class="form-control" type="text" value="A: {{ question[3] }}" disabled readonly>
+                                    {% endif %}
+                                    {% if question[9] %}
+                                        <div  style="display: flex; align-items: center;">
+                                            <span style="margin-right: 10px;">Image A:</span>
+                                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[9]) }}" class="form-control" alt="Question Image" style="width: 100px; height: auto;">
+                                        </div>
+                                    {% endif %}
+                                    {% if not question[3] and not question[9] %}
+                                        <!-- Placeholder for missing Choice A -->
+                                        <span>No Choice A</span>
+                                    {% endif %}
+                                </div>
+                                
+                                
+                                
+                                
+                            
+                                <!-- Choice B -->
+                                <div class="form-group">
+                                    {% if question[4] %}
+                                        <input class="form-control" type="text" value="B: {{ question[4] }}" disabled readonly>
+                                    {% endif %}
+                                    {% if question[10] %}
+                                        <div  style="display: flex; align-items: center;">
+                                            <span style="margin-right: 10px;">Image B:</span>
+                                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[10]) }}" class="form-control" alt="Question Image" style="width: 100px; height: auto;">
+                                        </div>
+                                    {% endif %}
+                                    {% if not question[4] and not question[10] %}
+                                        <!-- Placeholder for missing Choice B -->
+                                        <span>No Choice B</span>
+                                    {% endif %}
+                                </div>
+                            
+                                <!-- Choice C -->
+                                <div class="form-group">
+                                    {% if question[5] %}
+                                        <input class="form-control" type="text" value="C: {{ question[5] }}" disabled readonly>
+                                    {% endif %}
+                                    {% if question[11] %}
+                                        <div  style="display: flex; align-items: center;">
+                                            <span style="margin-right: 10px;">Image C:</span>
+                                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[11]) }}" class="form-control" alt="Question Image" style="width: 100px; height: auto;">
+                                        </div>
+                                    {% endif %}
+                                    {% if not question[5] and not question[11] %}
+                                        <!-- Placeholder for missing Choice C -->
+                                        <span>No Choice C</span>
+                                    {% endif %}
+                                </div>
+                            
+                                <!-- Choice D -->
+                                <div class="form-group">
+                                    {% if question[6] %}
+                                        <input class="form-control" type="text" value="D: {{ question[6] }}" disabled readonly>
+                                    {% endif %}
+                                    {% if question[12] %}
+                                        <div  style="display: flex; align-items: center;">
+                                            <span style="margin-right: 10px;">Image D:</span>
+                                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question[12]) }}" class="form-control" alt="Question Image" style="width: 100px; height: auto;">
+                                        </div>
+                                    {% endif %}
+                                    {% if not question[6] and not question[12] %}
+                                        <!-- Placeholder for missing Choice D -->
+                                        <span>No Choice D</span>
+                                    {% endif %}
                                 </div>
                             </td>
-                            <td><b>คำถาม : {{ question[2] }}</b>
-                                <input class="form-control" type="text" value="A: {{ question[3] }}" disabled readonly>
-                                <input class="form-control" type="text" value="B: {{ question[4] }}" disabled readonly>
-                                <input class="form-control" type="text" value="C: {{ question[5] }}" disabled readonly>
-                                <input class="form-control" type="text" value="D: {{ question[6] }}" disabled readonly>
-                            </td>
-                            <td  align="center">
+                            
+                            <td align="center">
                                 <font color=red> {{ question[7] }} </font>
                             </td>
-                            <td  align="center">
+                            <td align="center">
                                 <font color=blue> {{ question[1] }} </font>
                             </td>
                             <td align="center"><a class="btn btn-warning btn-sm" href="/edit_question/{{question[0]}}">
-                                    <i class="fas fa-pencil-alt"></i> Edit
+                                    <i class="fas fa-pencil-alt"></i>
                                 </a></td>
                             <td align="center"><a class="btn btn-danger btn-sm" href="/delete_question/{{question[0]}}">
-                                    <i class="fas fa-trash"></i> Delete
+                                    <i class="fas fa-trash"></i>
                                 </a></td>
                         </tr>
                         {% endfor %}
@@ -161,7 +254,6 @@
                 </table>
             </div>
         </div>
-
     </section>
 </div>
 <!-- jQuery -->
@@ -186,23 +278,98 @@
 <!-- Page specific script -->
 <script>
     $(function () {
-        $("#example1").DataTable({
-            "responsive": true,
-            "lengthChange": false,
-            "autoWidth": false,
-            // "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
-        }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
-        $('#example2').DataTable({
-            "paging": true,
-            "lengthChange": false,
-            // "searching": false,
-            "ordering": true,
-            "info": true,
-            "autoWidth": false,
-            "responsive": true,
+      $("#example1").DataTable({
+        "responsive": true,
+        "lengthChange": true,
+        "autoWidth": false,
+        "buttons": [
+          {
+            extend: "copy",
+            exportOptions: {
+              columns: ':visible' // ให้คัดลอกเฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          {
+            extend: "csv",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "excel",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "print",
+            exportOptions: {
+              columns: ':visible' // ให้พิมพ์เฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          "colvis" // ปุ่ม colvis สำหรับการแสดง/ซ่อนคอลัมน์
+        ]
+      }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
+  
+      $('#example2').DataTable({
+        "paging": true,
+        "lengthChange": false,
+        "searching": false,
+        "ordering": true,
+        "info": true,
+        "autoWidth": false,
+        "responsive": true,
+      });
+    });
+</script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#quizForm').on('submit', function (e) {
+            e.preventDefault(); // ป้องกันการรีเฟรชหน้าจอ
+            
+            // ตรวจสอบข้อมูลฟอร์ม
+            var score = $('#score').val();
+            var question_name = $('#question_name').val();
+            var correct_answer = $('#correct_answer').val();
+            
+            // ตัวอย่างการตรวจสอบข้อมูล
+            if (!score || !question_name || !correct_answer) {
+                Swal.fire({
+                    title: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน',
+                    icon: 'warning'
+                });
+                return; // หยุดการทำงานต่อจากนี้
+            }
+
+            // ส่งฟอร์ม (อาจใช้ JavaScript เพื่อจัดการการรีเฟรชหน้า)
+            // ต่อไปนี้เป็นตัวอย่างการใช้ JavaScript เพื่อสร้างการส่งฟอร์ม:
+            this.submit(); // ส่งฟอร์มเมื่อข้อมูลครบถ้วน
         });
     });
 </script>
+
+<script>
+    $(document).ready(function () {
+        // File type validation for multiple inputs
+        $("#question_image, #choice_a_image, #choice_b_image, #choice_c_image, #choice_d_image").change(function () {
+            var file = this.files[0];
+            if (file) {
+                var imagefile = file.type;
+                var match = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
+                if (!match.includes(imagefile)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ประเภทไฟล์ไม่ถูกต้อง',
+                        text: 'กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง (JPEG/JPG/PNG/GIF)',
+                    });
+                    $(this).val(''); // Clear the file input field
+                }
+            }
+        });
+    });
+</script>
+
 </body>
 {% include 'components/footer_dashboard.html' %}
 {% endblock %}

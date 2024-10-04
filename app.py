@@ -12,6 +12,11 @@ from jinja2 import Environment
 import os
 import io
 from operator import itemgetter
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField
+from wtforms.validators import DataRequired, Email, Length, EqualTo
 
 
 
@@ -28,6 +33,16 @@ app.config['MYSQL_DB'] = 'pop_learning'
 
 mysql = MySQL(app)
 
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'poplearning11@gmail.com'
+app.config['MAIL_PASSWORD'] = 'vope fogc ghpc xzce'
+app.config['SECURITY_PASSWORD_SALT'] = 'reset'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+
+
+mail = Mail(app)
 
 
 login_manager = LoginManager(app)
@@ -103,16 +118,23 @@ def load_user(user_id):
     return None
 
 # ---------------------------------------------------------------------------------------------
-
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash("กรุณาเข้าสู่ระบบเพื่อเข้าสู่หน้านี้", "warning")
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 # ---------------------------------------------------------------------------------------------
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
-            flash('กรุณาเข้าสู่ระบบเพื่อเข้าถึงหน้านี้.', 'danger')
+            flash("กรุณาเข้าสู่ระบบเพื่อเข้าสู่หน้านี้", "warning")
             return redirect(url_for('login'))
         if current_user.role != 'admin':
-            flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'danger')
+            flash("คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้", "error")
             return redirect(url_for('home'))
         return f(*args, **kwargs)
     return decorated_function
@@ -125,10 +147,10 @@ def instructor_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
-            flash('กรุณาเข้าสู่ระบบเพื่อเข้าถึงหน้านี้.', 'danger')
+            flash("กรุณาเข้าสู่ระบบเพื่อเข้าสู่หน้านี้", "warning")
             return redirect(url_for('login'))
         if current_user.role != 'instructor':
-            flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'danger')
+            flash("คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้", "error")
             return redirect(url_for('home'))
         return f(*args, **kwargs)
     return decorated_function
@@ -161,7 +183,7 @@ def login():
             session['last_name'] = user['last_name']
             session['username'] = user['username']
             session['email'] = user['email']
-            flash('Logged in successfully!', 'success')
+            flash('เข้าสู่ระบบสำเร็จ!', 'success')
             return redirect(url_for('home'))
 
         # Check in admin table if not found in user table
@@ -178,7 +200,7 @@ def login():
             session['username'] = admin['username']
             session['email'] = admin['email']
             session['tel'] = admin['tel']
-            flash('Admin logged in successfully!', 'success')
+            flash('ผู้ดูแลระบบเข้าสู่ระบบสำเร็จ!', 'success')
             return redirect(url_for('admin_dashboard'))
 
         # Check in instructor table if not found in user or admin table
@@ -195,11 +217,11 @@ def login():
             session['username'] = instructor['username']
             session['email'] = instructor['email']
             session['tel'] = instructor['tel']
-            flash('Instructor logged in successfully!', 'success')
+            flash('ผู้สอนเข้าสู่ระบบสำเร็จ!', 'success')
             return redirect(url_for('instructor_dashboard'))
 
 
-        flash('Please enter correct email / password!', 'error')
+        flash('กรุณากรอกอีเมล / รหัสผ่านที่ถูกต้อง!', 'error')
             
     return render_template('registration/login.html')
 
@@ -214,7 +236,7 @@ def logout():
     session.pop('username', None)
     session.pop('email', None)
     logout_user()
-    flash('You have been logged out!', 'success')
+    flash('คุณออกจากระบบแล้ว!', 'success')
     return redirect(url_for('login'))
 
 # ---------------------------------------------------------------------------------------------
@@ -225,13 +247,12 @@ def logout():
 def register():
     if request.method == 'POST':
         # Ensure all required fields are present
-        required_fields = ['username', 'password', 'confirm_password', 'email', 'first_name', 'last_name', 'birth', 'gender']
+        required_fields = ['username', 'password', 'confirm_password', 'email', 'first_name', 'last_name', 'gender']
         if all(field in request.form for field in required_fields):
             first_name = request.form['first_name']
             last_name = request.form['last_name']
             username = request.form['username']
             email = request.form['email']
-            birth = request.form['birth']
             password = request.form['password']
             confirm_password = request.form['confirm_password']
             gender = request.form['gender']
@@ -243,40 +264,40 @@ def register():
 
             # Validate inputs
             if user:
-                flash('Account already exists!', 'error')
+                flash('บัญชีมีอยู่แล้ว!', 'error')
             elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-                flash('Invalid email address!', 'error')
+                flash('ที่อยู่อีเมลไม่ถูกต้อง!', 'error')
             elif not re.match(r'[A-Za-z0-9]+', username):
-                flash('Username must contain only characters and numbers!', 'error')
+                flash('ชื่อผู้ใช้ต้องประกอบด้วยตัวอักษรและตัวเลขเท่านั้น!', 'error')
             elif password != confirm_password:
-                flash('Passwords do not match!', 'error')
+                flash('รหัสผ่านไม่ตรงกัน!', 'error')
             elif len(password) < 8:
-                flash("Password must be at least 8 characters long", 'error')
+                flash("รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร", 'error')
             elif not any(c.isupper() for c in password):
-                flash("Password must contain at least 1 uppercase letter", 'error')
+                flash("รหัสผ่านต้องมีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว", 'error')
             elif not any(c.islower() for c in password):
-                flash("Password must contain at least 1 lowercase letter", 'error')
+                flash("รหัสผ่านต้องมีตัวอักษรพิมพ์เล็กอย่างน้อย 1 ตัว", 'error')
             elif not any(c.isdigit() for c in password):
-                flash("Password must contain at least 1 digit", 'error')
+                flash("รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 หลัก", 'error')
             elif not username or not password or not email:
-                flash('Please fill out the form!', 'error')
+                flash('กรุณากรอกแบบฟอร์ม!', 'error')
             elif gender not in ['Male', 'Female']:
-                flash('Please select a valid gender!', 'error')
+                flash('กรุณาเลือกเพศที่ถูกต้อง!', 'error')
             else:
                 registration_date = datetime.today()
 
                 # Insert user into the database
                 cursor.execute(
-                    'INSERT INTO user (first_name, last_name, username, email, birth_date, registration_date, password, gender, role) '
-                    'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)', 
-                    (first_name, last_name, username, email, birth, registration_date, password, gender, 'user')
+                    'INSERT INTO user (first_name, last_name, username, email, registration_date, password, gender, role) '
+                    'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)', 
+                    (first_name, last_name, username, email, registration_date, password, gender, 'user')
                 )
 
                 mysql.connection.commit()
-                flash('You have successfully registered!', 'success')
+                flash('คุณลงทะเบียนสำเร็จแล้ว!', 'success')
                 return redirect(url_for('register'))
         else:
-            flash('Please fill out the form!', 'error')
+            flash('กรุณากรอกแบบฟอร์ม!', 'error')
     
     return render_template('registration/register.html')
 # ---------------------------------------------------------------------------------------------
@@ -292,6 +313,25 @@ def allowed_file(filename):
 @app.route('/profile_update', methods=['GET', 'POST'])
 @login_required
 def profile_update():
+    session_username = session.get('username')
+
+    # ดึงข้อมูล user, admin, และ instructor ตาม username ที่เข้าสู่ระบบ
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM user WHERE username=%s", (session_username,))
+    user = cur.fetchone()  # ดึงข้อมูล user
+
+    cur.execute("SELECT * FROM admin WHERE username=%s", (session_username,))
+    admin = cur.fetchone()  # ดึงข้อมูล admin
+
+    cur.execute("SELECT * FROM instructor WHERE username=%s", (session_username,))
+    instructor = cur.fetchone()  # ดึงข้อมูล instructor
+    cur.close()
+
+    # ตรวจสอบว่า user, admin หรือ instructor มีค่า None หรือไม่
+    userimage_filename = user[9] if user and user[9] else "/static/img/avatars/user_dark.png"
+    adminimage_filename = admin[10] if admin and admin[10] else "/static/img/avatars/admin_dark.png"
+    instructorimage_filename = instructor[10] if instructor and instructor[10] else "/static/img/avatars/instructor_dark.png"
+
     if request.method == "POST":
         first_name = request.form['first_name']
         last_name = request.form['last_name']
@@ -302,94 +342,87 @@ def profile_update():
         adminimage = request.files['adminimage'] if 'adminimage' in request.files else None
         instructorimage = request.files['instructorimage'] if 'instructorimage' in request.files else None
 
-        # Set the userimage path if the filename is provided and is allowed
-        userimage_filename = None
+        # ถ้าไม่มีรูปใหม่ให้ใช้รูปเดิม
         if userimage and allowed_file(userimage.filename):
             filename = secure_filename(userimage.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER_USER_UPDATED'], filename)
             userimage.save(filepath)
             userimage_filename = f"../{app.config['UPLOAD_FOLDER_USER_UPDATED']}/{filename}"
 
-        adminimage_filename = None
         if adminimage and allowed_file(adminimage.filename):
             filename = secure_filename(adminimage.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER_ADMIN_UPDATED'], filename)
             adminimage.save(filepath)
             adminimage_filename = f"../{app.config['UPLOAD_FOLDER_ADMIN_UPDATED']}/{filename}"
 
-        instructorimage_filename = None
         if instructorimage and allowed_file(instructorimage.filename):
             filename = secure_filename(instructorimage.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER_INSTRUCTOR_UPDATED'], filename)
             instructorimage.save(filepath)
             instructorimage_filename = f"../{app.config['UPLOAD_FOLDER_INSTRUCTOR_UPDATED']}/{filename}"
-
-        if len(password) < 8:
-            flash("Password must be at least 8 characters long", 'error')
-        elif not any(c.isupper() for c in password):
-            flash("Password must contain at least 1 uppercase letter", 'error')
-        elif not any(c.islower() for c in password):
-            flash("Password must contain at least 1 lowercase letter", 'error')
-        elif not any(c.isdigit() for c in password):
-            flash("Password must contain at least 1 digit", 'error')
-        else:
-            session_username = session.get('username')
-            cur = mysql.connection.cursor()
             
+    
+        # ตรวจสอบ password
+        if password and len(password) < 8:
+            flash("รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร", 'error')
+        elif password and not any(c.isupper() for c in password):
+            flash("รหัสผ่านต้องมีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว", 'error')
+        elif password and not any(c.islower() for c in password):
+            flash("รหัสผ่านต้องมีตัวอักษรพิมพ์เล็กอย่างน้อย 1 ตัว", 'error')
+        elif password and not any(c.isdigit() for c in password):
+            flash("รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 หลัก", 'error')
+        else:
+                # ถ้าไม่มีการอัปเดตรหัสผ่าน ให้ใช้รหัสผ่านเดิม
+            if not password:
+                if user:
+                    password = user[8]  # ใช้รหัสผ่านจากตาราง user
+                elif admin:
+                    password = admin[7]  # ใช้รหัสผ่านจากตาราง admin
+                elif instructor:
+                    password = instructor[7]  # ใช้รหัสผ่านจากตาราง instructor  
+                    
+            cur = mysql.connection.cursor()
+
+            # อัปเดตข้อมูลในตาราง user, admin, และ instructor
             cur.execute("UPDATE user SET first_name=%s, last_name=%s, username=%s, email=%s, password=%s, userimage=%s WHERE username=%s",
                         (first_name, last_name, username, email, password, userimage_filename, session_username))
-            
+
             cur.execute("UPDATE admin SET first_name=%s, last_name=%s, username=%s, email=%s, password=%s, adminimage=%s WHERE username=%s",
                         (first_name, last_name, username, email, password, adminimage_filename, session_username))
-            
+
             cur.execute("UPDATE instructor SET first_name=%s, last_name=%s, username=%s, email=%s, password=%s, instructorimage=%s WHERE username=%s",
                         (first_name, last_name, username, email, password, instructorimage_filename, session_username))
-            
+
             mysql.connection.commit()
             cur.close()
-            
-            flash("Your Profile has been successfully updated", 'success')
+
+            flash("โปรไฟล์ของคุณได้รับการอัปเดตเรียบร้อยแล้ว", 'success')
             return redirect('/profile_update')
 
-    session_username = session.get('username')
+    # ดึงข้อมูลหมวดหมู่และคอร์สเพื่อนำไปแสดง
     cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM user WHERE username=%s", (session_username,))
-    user = cur.fetchone()
-    cur.close()
+    cur.execute("SELECT id, icon, name FROM categories")
+    categories = cur.fetchall()
 
-    try:
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT id, icon, name FROM categories")
-        categories = cur.fetchall()
+    cur.execute("""
+        SELECT c.id, c.title, c.slug, cat.name as category_name
+        FROM courses c
+        JOIN categories cat ON c.category_id = cat.id
+    """)
+    all_courses = cur.fetchall()
 
-        cur.execute("""
-                SELECT c.id, c.title, c.slug, cat.name as category_name
-                FROM courses c
-                JOIN categories cat ON c.category_id = cat.id
-            """)
-        all_courses = cur.fetchall()
-
-        cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
-        user_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/user.png"
-
-        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
-
-        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        categories = []
-        all_courses = []
-
-    finally:
-        cur.close()
+    # ตั้งค่า URLs สำหรับรูปภาพที่จะใช้ในการแสดงผล
+    user_image_url = userimage_filename if userimage_filename else "/static/img/avatars/user_dark.png"
+    admin_image_url = adminimage_filename if adminimage_filename else "/static/img/avatars/admin_dark.png"
+    instructor_image_url = instructorimage_filename if instructorimage_filename else "/static/img/avatars/instructor_dark.png"
 
     categories = [{'id': row[0], 'icon': row[1], 'name': row[2]} for row in categories]
     courses = [{'id': row[0], 'title': row[1], 'slug': row[2], 'category_name': row[3]} for row in all_courses]
 
-    return render_template('registration/profile_update.html', user=user, categories=categories, courses=courses, user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+    return render_template('registration/profile_update.html', user=user, categories=categories, courses=courses,
+                           user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+
+
 
 # ---------------------------------------------------------------------------------------------
 
@@ -401,7 +434,7 @@ def profile_update():
 @login_required
 @admin_required
 def admin_dashboard():
-
+        admin_image_url = "/static/img/avatars/admin.png"
         # Create cursor object to execute SQL commands
         cur = mysql.connection.cursor()
 
@@ -418,12 +451,78 @@ def admin_dashboard():
         total_enroll = cur.fetchone()[0]
 
         # Execute SQL command to get the total number of quizzes
-        cur.execute("SELECT COUNT(*) FROM quiz")
-        total_quiz = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM courses")
+        total_course = cur.fetchone()[0]
 
         # Execute SQL command to get admin image URL
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
+        
+        # Execute SQL คำสั่งเพื่อดึงข้อมูลการเข้าเรียนแต่ละวัน
+        cur.execute("""
+            SELECT DATE(user_enroll.enroll_date) as enroll_date, COUNT(user_enroll.enroll_id) as enroll_count
+            FROM user_enroll
+            JOIN courses ON user_enroll.course_id = courses.id
+            GROUP BY DATE(user_enroll.enroll_date)
+            ORDER BY DATE(user_enroll.enroll_date);
+        """)
+        enroll_daily = cur.fetchall()
+
+        # Format the data for Highcharts
+        chart_enroll_list_daily = [{"name": row[0].strftime('%d-%m-%Y'), "y": row[1]} for row in enroll_daily]
+
+
+        # Execute SQL คำสั่งเพื่อดึงข้อมูลการเข้าเรียนแต่ละเดือน-ปีไหน
+        cur.execute("""
+            SELECT 
+                CASE
+                    WHEN MONTH(user_enroll.enroll_date) = 1 THEN 'มกราคม'
+                    WHEN MONTH(user_enroll.enroll_date) = 2 THEN 'กุมภาพันธ์'
+                    WHEN MONTH(user_enroll.enroll_date) = 3 THEN 'มีนาคม'
+                    WHEN MONTH(user_enroll.enroll_date) = 4 THEN 'เมษายน'
+                    WHEN MONTH(user_enroll.enroll_date) = 5 THEN 'พฤษภาคม'
+                    WHEN MONTH(user_enroll.enroll_date) = 6 THEN 'มิถุนายน'
+                    WHEN MONTH(user_enroll.enroll_date) = 7 THEN 'กรกฎาคม'
+                    WHEN MONTH(user_enroll.enroll_date) = 8 THEN 'สิงหาคม'
+                    WHEN MONTH(user_enroll.enroll_date) = 9 THEN 'กันยายน'
+                    WHEN MONTH(user_enroll.enroll_date) = 10 THEN 'ตุลาคม'
+                    WHEN MONTH(user_enroll.enroll_date) = 11 THEN 'พฤศจิกายน'
+                    WHEN MONTH(user_enroll.enroll_date) = 12 THEN 'ธันวาคม'
+                END as enroll_month_thai,
+                YEAR(user_enroll.enroll_date) as enroll_year,
+                COUNT(user_enroll.enroll_id) as enroll_count
+            FROM user_enroll
+            JOIN courses ON user_enroll.course_id = courses.id
+            WHERE YEAR(user_enroll.enroll_date) IN (%s, %s, %s)
+            GROUP BY enroll_month_thai, enroll_year
+            ORDER BY enroll_year, MONTH(user_enroll.enroll_date);
+        """, (datetime.now().year, datetime.now().year - 1, datetime.now().year - 2))
+
+        enroll_monthly = cur.fetchall()
+
+        # Format the data for Highcharts
+        chart_enroll_list_monthly = []
+        for row in enroll_monthly:
+            if len(row) >= 3:  # Ensure row has at least three elements
+                chart_enroll_list_monthly.append({"name": f"{row[0]}-{row[1]}", "y": row[2]})
+
+    
+        # Execute SQL คำสั่งเพื่อดึงข้อมูลการเข้าเรียนแต่ละปี
+        cur.execute("""
+                SELECT 
+                    EXTRACT(YEAR FROM user_enroll.enroll_date) as enroll_year,
+                    COUNT(user_enroll.enroll_id) as enroll_count
+                FROM user_enroll
+                JOIN courses ON user_enroll.course_id = courses.id
+                GROUP BY enroll_year
+                ORDER BY enroll_year;
+            """)
+        enroll_yearly = cur.fetchall()
+
+            # Format the data for Highcharts
+        chart_enroll_list_yearly = [{"name": str(row[0]), "y": row[1]} for row in enroll_yearly]
 
 
         # Execute SQL command to get enrollment data
@@ -445,7 +544,7 @@ def admin_dashboard():
         cur.close()
 
         # Pass total_users, total_instructor, and sorted_chart_enroll to the template
-        return render_template('admin/admin_dashboard.html', total_users=total_users, total_instructor=total_instructor, total_enroll=total_enroll, total_quiz=total_quiz, chart_enroll=sorted_chart_enroll, admin_image_url=admin_image_url)
+        return render_template('admin/admin_dashboard.html', total_users=total_users, total_instructor=total_instructor, total_enroll=total_enroll, total_course=total_course, chart_enroll=sorted_chart_enroll, chart_enroll_list_daily=chart_enroll_list_daily, chart_enroll_list_monthly=chart_enroll_list_monthly, chart_enroll_list_yearly=chart_enroll_list_yearly, admin_image_url=admin_image_url)
 
 
 
@@ -459,12 +558,15 @@ def admin_dashboard():
 @login_required
 @admin_required
 def admin_table():
+    admin_image_url = "/static/img/avatars/admin.png"
     cur = mysql.connection.cursor()
-    cur.execute('''SELECT id, first_name, last_name, email, tel, DATE_FORMAT(birth_date, '%d/%m/%Y') AS formatted_date, password, gender, role, adminimage FROM admin''')
+    cur.execute('''SELECT id, first_name, last_name, email, tel, DATE_FORMAT(registration_date, '%d/%m/%Y') AS formatted_date, password, gender, role, adminimage FROM admin''')
     data = cur.fetchall()
 
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
     cur.close()
     sweet_alert = request.args.get('sweet_alert')
     return render_template('admin/admin_table.html', data=data, sweet_alert=sweet_alert, admin_image_url=admin_image_url)
@@ -478,20 +580,23 @@ app.config['UPLOAD_FOLDER_ADMIN'] = 'static/img/uploads/admin'
 @login_required
 @admin_required
 def insert_admin():
+    admin_image_url = "/static/img/avatars/admin.png"
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"  # Initialize with a default value if no image is found
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]  # Initialize with a default value if no image is found
 
     if request.method == 'POST':
         # Retrieve form data
-        first_name = request.form['first_name']
-        last_name = request.form['last_name']
-        username = request.form['username']
-        email = request.form['email']
-        tel = request.form['tel']
-        birth = request.form['birth']
-        password = request.form['password']
-        gender = request.form['gender']
+        form_data = request.form.to_dict()
+        first_name = form_data.get('first_name')
+        last_name = form_data.get('last_name')
+        username = form_data.get('username')
+        email = form_data.get('email')
+        tel = form_data.get('tel')
+        password = form_data.get('password')
+        gender = form_data.get('gender')
 
         # File handling (if applicable)
         adminimage_path = None
@@ -503,20 +608,20 @@ def insert_admin():
                 adminimage_path = f"../static/img/uploads/admin/{adminimage_filename}"
 
         # Form validation
-        if not all([first_name, last_name, username, email, tel, birth, password, gender]):
-            flash('Please fill out the form completely!', 'error')
+        if not all([first_name, last_name, username, email, tel, password, gender]):
+            return jsonify({'status': 'error', 'message': 'กรุณากรอกแบบฟอร์มให้ครบถ้วน!'})
         elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-            flash('Invalid email address!', 'error')
-        elif not re.match(r'^[A-Za-z0-9]+$', username):
-            flash('Username must contain only characters and numbers!', 'error')
+            return jsonify({'status': 'error', 'message': 'ที่อยู่อีเมล์ไม่ถูกต้อง!'})
+        elif not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$', username):
+            return jsonify({'status': 'error', 'message': 'ชื่อผู้ใช้จะต้องประกอบด้วยตัวอักษรและตัวเลขเท่านั้น!'})
         elif len(password) < 8:
-            flash("Password must be at least 8 characters long", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร'})
         elif not any(c.isupper() for c in password):
-            flash("Password must contain at least 1 uppercase letter", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องประกอบด้วยตัวอักษรพิมพ์ใหญ่อย่างน้อย 1 ตัว'})
         elif not any(c.islower() for c in password):
-            flash("Password must contain at least 1 lowercase letter", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องประกอบด้วยตัวอักษรพิมพ์เล็กอย่างน้อย 1 ตัว'})
         elif not any(c.isdigit() for c in password):
-            flash("Password must contain at least 1 digit", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 หลัก'})
         else:
             try:
                 # Check if account already exists
@@ -524,18 +629,17 @@ def insert_admin():
                 admin = cur.fetchone()
 
                 if admin:
-                    flash('Account already exists!', 'error')
+                    return jsonify({'status': 'error', 'message': 'มีบัญชีอยู่แล้ว!'})
                 else:
                     # If validation passes and no existing admin, proceed with database insertion
                     registration_date = datetime.now()
-                    cur.execute('''INSERT INTO admin (first_name, last_name, username, email, tel, birth_date, registration_date, password, gender, role, adminimage) 
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
-                                (first_name, last_name, username, email, tel, birth, registration_date, password, gender, 'admin', adminimage_path))
+                    cur.execute('''INSERT INTO admin (first_name, last_name, username, email, tel, registration_date, password, gender, role, adminimage) 
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
+                                (first_name, last_name, username, email, tel, registration_date, password, gender, 'admin', adminimage_path))
                     mysql.connection.commit()
-                    flash('Admin successfully added', 'success')
-                    return redirect(url_for('admin_table'))
+                    return jsonify({'status': 'success', 'message': 'เพิ่มผู้ดูแลระบบสำเร็จแล้ว'})
             except Exception as e:
-                flash(f"An error occurred: {e}", 'error')
+                return jsonify({'status': 'error', 'message': f'เกิดข้อผิดพลาด: {e}'})
             finally:
                 cur.close()
 
@@ -548,136 +652,144 @@ def insert_admin():
 
 
 
-# แก้ไขแอดมิน
-@app.route('/edit_admin/<id>', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def edit_admin(id):
-    cur = mysql.connection.cursor()
-    cur.execute('SELECT * FROM admin WHERE id = %s', (id,))
-    admin = cur.fetchone()
-
-    cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
-    cur.close()
-    return render_template('admin/updated_admin.html', admin=admin, admin_image_url=admin_image_url)
-
-
-
-
-
-
-app.config['UPLOAD_FOLDER_ADMIN_UPDATED'] = 'static/img/updated/admin'
-app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
-
-@app.route('/updated_admin', methods=['POST'])
-@login_required
-@admin_required  # Assuming you have a decorator like this for admin access control
-def updated_admin():
-    if request.method == 'POST':
-        id = request.form.get('id')
-        first_name = request.form.get('first_name')
-        last_name = request.form.get('last_name')
-        username = request.form.get('username')
-        email = request.form.get('email')
-        tel = request.form.get('tel')
-        birth = request.form.get('birth')
-        gender = request.form.get('gender')
-        adminimage = request.files.get('adminimage')
-
-        adminimage_filename = None
-        if adminimage and allowed_file(adminimage.filename):
-            filename = secure_filename(adminimage.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER_ADMIN_UPDATED'], filename)
-            adminimage.save(filepath)
-            adminimage_filename = f"../{app.config['UPLOAD_FOLDER_ADMIN_UPDATED']}/{filename}"  # เปลี่ยนเส้นทางเพื่อให้สามารถเข้าถึงไฟล์ได้ในแอปพลิเคชัน Flask
-
-        # Validate email and username
-        if not email or not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-            flash('Invalid email address!', 'error')
-            return redirect(url_for('admin_table'))
-        if not username or not re.match(r'^[A-Za-z0-9]+$', username):
-            flash('Username must contain only letters and numbers!', 'error')
-            return redirect(url_for('admin_table'))
-
-        # Update admin information in the database
-        cur = mysql.connection.cursor()
-        cur.execute('''
-            UPDATE admin 
-            SET first_name = %s, last_name = %s, username = %s, email = %s, tel = %s, birth_date = %s, gender = %s, adminimage = %s 
-            WHERE id = %s
-        ''', (first_name, last_name, username, email, tel, birth, gender, adminimage_filename, id))
-        mysql.connection.commit()
-        cur.close()
-
-        flash('Admin successfully updated', 'success')
-
-    return redirect(url_for('admin_table'))
-
-
-# ลบแอดมิน
-@app.route('/delete_admin/<int:id>', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def delete_admin(id):
-    cur = mysql.connection.cursor()
-    cur.execute('DELETE FROM admin WHERE id = %s', (id,))
-    mysql.connection.commit()
-    cur.close()
-
-    flash('Admin successfully Deleted', 'success')
-    return redirect(url_for('admin_table'))
-
-
-@app.route('/edit_password_admin/<id>', methods=['GET', 'POST'])
-@login_required
-def edit_password_admin(id):
-    if current_user.role not in ['admin', 'instructor']:
-        flash('คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'danger')
-        return redirect(url_for('home'))
+# # แก้ไขแอดมิน
+# @app.route('/edit_admin/<id>', methods=['GET', 'POST'])
+# @login_required
+# @admin_required
+# def edit_admin(id):
+#     admin_image_url = "/static/img/avatars/admin.png"
     
-    cur = mysql.connection.cursor()
-    cur.execute('''SELECT * FROM admin WHERE id = %s''', (id,))
-    admin = cur.fetchone()
+#     cur = mysql.connection.cursor()
+#     cur.execute('SELECT * FROM admin WHERE id = %s', (id,))
+#     admin = cur.fetchone()
 
-    cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
+#     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+#     result = cur.fetchone()
+#     if result and result[0]:
+#         admin_image_url = result[0]
+#     cur.close()
+#     return render_template('admin/updated_admin.html', admin=admin, admin_image_url=admin_image_url)
 
-    if request.method == "POST":
-        # Fetch form data
-        new_password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
 
-        # Check if passwords match
-        if new_password != confirm_password:
-            flash("รหัสผ่านทั้งสองไม่ตรงกัน กรุณากรอกใหม่", 'error')
-        elif not new_password or len(new_password) < 8:
-            flash("รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร", 'error')
-        elif not any(c.isupper() for c in new_password):
-            flash("รหัสผ่านต้องมีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว", 'error')
-        elif not any(c.islower() for c in new_password):
-            flash("รหัสผ่านต้องมีตัวอักษรพิมพ์เล็กอย่างน้อย 1 ตัว", 'error')
-        elif not any(c.isdigit() for c in new_password):
-            flash("รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว", 'error')
-        else:
-            try:
-                # Update the database with the new password
-                cur.execute('''UPDATE admin SET password = %s WHERE id = %s''', 
-                            (new_password, id))
-                mysql.connection.commit()
-                cur.close()
 
-                flash("รหัสผ่านของคุณได้รับการอัปเดตเรียบร้อยแล้ว", 'success')
-                return redirect(url_for('admin_table', id=id))
 
-            except Exception as e:
-                flash("เกิดข้อผิดพลาดในการอัปเดตรหัสผ่าน: {}".format(e), 'error')
 
-    # Render the password update form for GET requests
-    return render_template('admin/edit_password_admin.html', admin=admin, admin_image_url=admin_image_url)
+
+# app.config['UPLOAD_FOLDER_ADMIN_UPDATED'] = 'static/img/updated/admin'
+# app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
+
+# def allowed_file(filename):
+#     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+# @app.route('/updated_admin', methods=['POST'])
+# @login_required
+# @admin_required  # Assuming you have a decorator like this for admin access control
+# def updated_admin():
+#     if request.method == 'POST':
+#         id = request.form.get('id')
+#         first_name = request.form.get('first_name')
+#         last_name = request.form.get('last_name')
+#         username = request.form.get('username')
+#         email = request.form.get('email')
+#         tel = request.form.get('tel')
+#         birth = request.form.get('birth')
+#         gender = request.form.get('gender')
+#         adminimage = request.files.get('adminimage')
+
+#         adminimage_filename = None
+#         if adminimage and allowed_file(adminimage.filename):
+#             filename = secure_filename(adminimage.filename)
+#             filepath = os.path.join(app.config['UPLOAD_FOLDER_ADMIN_UPDATED'], filename)
+#             adminimage.save(filepath)
+#             adminimage_filename = f"../{app.config['UPLOAD_FOLDER_ADMIN_UPDATED']}/{filename}"  # เปลี่ยนเส้นทางเพื่อให้สามารถเข้าถึงไฟล์ได้ในแอปพลิเคชัน Flask
+
+#         # Validate email and username
+#         if not email or not re.match(r'[^@]+@[^@]+\.[^@]+', email):
+#             flash('ที่อยู่อีเมล์ไม่ถูกต้อง!', 'error')
+#             return redirect(url_for('edit_admin', id=id))
+#         if not username or not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$', username):
+#             flash('ชื่อผู้ใช้จะต้องประกอบด้วยตัวอักษรและตัวเลขเท่านั้น!', 'error')
+#             return redirect(url_for('edit_admin', id=id))
+
+#         # Update admin information in the database
+#         cur = mysql.connection.cursor()
+#         cur.execute('''
+#             UPDATE admin 
+#             SET first_name = %s, last_name = %s, username = %s, email = %s, tel = %s, birth_date = %s, gender = %s, adminimage = %s 
+#             WHERE id = %s
+#         ''', (first_name, last_name, username, email, tel, birth, gender, adminimage_filename, id))
+#         mysql.connection.commit()
+#         cur.close()
+
+#         flash('อัปเดตผู้ดูแลระบบสำเร็จแล้ว', 'success')
+
+#     return redirect(url_for('admin_table'))
+
+
+# # ลบแอดมิน
+# @app.route('/delete_admin/<int:id>', methods=['GET', 'POST'])
+# @login_required
+# @admin_required
+# def delete_admin(id):
+#     cur = mysql.connection.cursor()
+#     cur.execute('DELETE FROM admin WHERE id = %s', (id,))
+#     mysql.connection.commit()
+#     cur.close()
+
+#     flash('ลบผู้ดูแลระบบสำเร็จแล้ว', 'success')
+#     return redirect(url_for('admin_table'))
+
+
+# @app.route('/edit_password_admin/<id>', methods=['GET', 'POST'])
+# @login_required
+# def edit_password_admin(id):
+#     if current_user.role not in ['admin', 'instructor']:
+#         flash('คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error')
+#         return redirect(url_for('home'))
+    
+#     admin_image_url = "/static/img/avatars/admin.png"
+    
+#     cur = mysql.connection.cursor()
+#     cur.execute('''SELECT * FROM admin WHERE id = %s''', (id,))
+#     admin = cur.fetchone()
+
+#     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+#     result = cur.fetchone()
+#     if result and result[0]:
+#         admin_image_url = result[0]
+
+#     if request.method == "POST":
+#         # Fetch form data
+#         new_password = request.form.get('password')
+#         confirm_password = request.form.get('confirm_password')
+
+#         # Check if passwords match
+#         if new_password != confirm_password:
+#             flash("รหัสผ่านทั้งสองไม่ตรงกัน กรุณากรอกใหม่", 'error')
+#         elif not new_password or len(new_password) < 8:
+#             flash("รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร", 'error')
+#         elif not any(c.isupper() for c in new_password):
+#             flash("รหัสผ่านต้องมีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว", 'error')
+#         elif not any(c.islower() for c in new_password):
+#             flash("รหัสผ่านต้องมีตัวอักษรพิมพ์เล็กอย่างน้อย 1 ตัว", 'error')
+#         elif not any(c.isdigit() for c in new_password):
+#             flash("รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 ตัว", 'error')
+#         else:
+#             try:
+#                 # Update the database with the new password
+#                 cur.execute('''UPDATE admin SET password = %s WHERE id = %s''', 
+#                             (new_password, id))
+#                 mysql.connection.commit()
+#                 cur.close()
+
+#                 flash("รหัสผ่านของคุณได้รับการอัปเดตเรียบร้อยแล้ว", 'success')
+#                 return redirect(url_for('admin_table', id=id))
+
+#             except Exception as e:
+#                 flash("เกิดข้อผิดพลาดในการอัปเดตรหัสผ่าน: {}".format(e), 'error')
+
+#     # Render the password update form for GET requests
+#     return render_template('admin/edit_password_admin.html', admin=admin, admin_image_url=admin_image_url)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -691,41 +803,59 @@ current_year = current_time.year
 @login_required
 @instructor_required
 def instructor_dashboard():
-    # สร้าง cursor object เพื่อทำการ execute SQL คำสั่ง
+    instructor_image_url = "/static/img/avatars/instructor.png"
     cur = mysql.connection.cursor()
 
-    cur.execute("SELECT COUNT(*) FROM quiz_attempts")
-    total_attempts  = cur.fetchone()[0]
+    # Count successfully completed students
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM user_enroll
+        JOIN courses ON user_enroll.course_id = courses.id
+        WHERE user_enroll.is_completed = 1 AND courses.instructor_id = %s;
+    """, (current_user.id,))
+    total_students_successfully = cur.fetchone()[0]
 
-    # Execute SQL คำสั่งเพื่อดึงข้อมูลจำนวนคอร์ส
-    cur.execute("SELECT COUNT(*) FROM courses")
+    # Count the number of courses
+    cur.execute("SELECT COUNT(*) FROM courses WHERE instructor_id = %s", (current_user.id,))
     course_count = cur.fetchone()[0]
 
-    # Execute SQL คำสั่งเพื่อดึงข้อมูลจำนวนควิซ
-    cur.execute("SELECT COUNT(*) FROM quiz")
-    quiz_count = cur.fetchone()[0]
+    # Count the number of students
+    cur.execute("""
+        SELECT COUNT(DISTINCT user_enroll.user_id)
+        FROM user_enroll
+        JOIN courses ON user_enroll.course_id = courses.id
+        WHERE courses.instructor_id = %s
+    """, (current_user.id,))
+    total_students = cur.fetchone()[0]
 
-    cur.execute("SELECT SUM(question_count) FROM quiz_attempts")
-    total_questions = cur.fetchone()[0]
+    # Count the number of students currently studying
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM user_enroll
+        JOIN courses ON user_enroll.course_id = courses.id
+        WHERE user_enroll.is_completed = 0 AND courses.instructor_id = %s;
+    """, (current_user.id,))
+    total_students_studying = cur.fetchone()[0]
 
+    # Get instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
 
-    # Execute SQL คำสั่งเพื่อดึงข้อมูลการเข้าเรียนแต่ละวัน
+    # Get daily enrollment data
     cur.execute("""
         SELECT DATE(user_enroll.enroll_date) as enroll_date, COUNT(user_enroll.enroll_id) as enroll_count
         FROM user_enroll
         JOIN courses ON user_enroll.course_id = courses.id
+        WHERE courses.instructor_id = %s
         GROUP BY DATE(user_enroll.enroll_date)
         ORDER BY DATE(user_enroll.enroll_date);
-    """)
+    """, (current_user.id,))
     enroll_daily = cur.fetchall()
-
-    # Format the data for Highcharts
     chart_enroll_list_daily = [{"name": row[0].strftime('%d-%m-%Y'), "y": row[1]} for row in enroll_daily]
 
-
-    # Execute SQL คำสั่งเพื่อดึงข้อมูลการเข้าเรียนแต่ละเดือน-ปีไหน
+    # Get monthly enrollment data
     cur.execute("""
         SELECT 
             CASE
@@ -747,38 +877,80 @@ def instructor_dashboard():
         FROM user_enroll
         JOIN courses ON user_enroll.course_id = courses.id
         WHERE YEAR(user_enroll.enroll_date) IN (%s, %s, %s)
+        AND courses.instructor_id = %s
         GROUP BY enroll_month_thai, enroll_year
         ORDER BY enroll_year, MONTH(user_enroll.enroll_date);
-    """, (datetime.now().year, datetime.now().year - 1, datetime.now().year - 2))
-
+    """, (datetime.now().year, datetime.now().year - 1, datetime.now().year - 2, current_user.id))
     enroll_monthly = cur.fetchall()
+    chart_enroll_list_monthly = [{"name": f"{row[0]}-{row[1]}", "y": row[2]} for row in enroll_monthly]
 
-    # Format the data for Highcharts
-    chart_enroll_list_monthly = []
-    for row in enroll_monthly:
-        if len(row) >= 3:  # Ensure row has at least three elements
-            chart_enroll_list_monthly.append({"name": f"{row[0]}-{row[1]}", "y": row[2]})
-
- 
-    # Execute SQL คำสั่งเพื่อดึงข้อมูลการเข้าเรียนแต่ละปี
+    # Get yearly enrollment data
     cur.execute("""
-            SELECT 
-                EXTRACT(YEAR FROM user_enroll.enroll_date) as enroll_year,
-                COUNT(user_enroll.enroll_id) as enroll_count
-            FROM user_enroll
-            JOIN courses ON user_enroll.course_id = courses.id
-            GROUP BY enroll_year
-            ORDER BY enroll_year;
-        """)
+        SELECT 
+            EXTRACT(YEAR FROM user_enroll.enroll_date) as enroll_year,
+            COUNT(user_enroll.enroll_id) as enroll_count
+        FROM user_enroll
+        JOIN courses ON user_enroll.course_id = courses.id
+        WHERE courses.instructor_id = %s
+        GROUP BY enroll_year
+        ORDER BY enroll_year;
+    """, (current_user.id,))
     enroll_yearly = cur.fetchall()
-
-        # Format the data for Highcharts
     chart_enroll_list_yearly = [{"name": str(row[0]), "y": row[1]} for row in enroll_yearly]
 
-    # ปิดการใช้ cursor
+    # Execute SQL query to get average pre-test and post-test scores
+    # Execute SQL query to get average pre-test and post-test scores for each course
+    cur.execute("""
+        SELECT
+            courses.title,
+            AVG(CASE WHEN quiz.quiz_type = 'Pre-Test' THEN quiz_attempts.score ELSE NULL END) AS avg_pre_test_score,
+            AVG(CASE WHEN quiz.quiz_type = 'Post-Test' THEN quiz_attempts.score ELSE NULL END) AS avg_post_test_score
+        FROM courses
+        LEFT JOIN lesson ON lesson.course_id = courses.id  -- JOIN lessons กับ courses
+        LEFT JOIN quiz ON quiz.lesson_id = lesson.lesson_id  -- JOIN quiz กับ lessons
+        LEFT JOIN quiz_attempts ON quiz_attempts.quiz_id = quiz.quiz_id  -- JOIN quiz_attempts กับ quiz
+        LEFT JOIN user_enroll ON user_enroll.course_id = courses.id AND quiz_attempts.user_id = user_enroll.user_id  -- JOIN user_enroll เฉพาะ course_id และ user_id ที่ตรงกัน
+        WHERE courses.instructor_id = %s
+        GROUP BY courses.id, courses.title;
+    """, (current_user.id,))
+
+    # Fetch the results
+    results = cur.fetchall()
+
+    # Prepare lists to store data
+    pre_test_score = []
+    post_test_score = []
+
+    # Loop through each course's result
+    for row in results:
+        course_title = row[0]
+        avg_pre_test_score = row[1] if row[1] is not None else 0
+        avg_post_test_score = row[2] if row[2] is not None else 0
+        
+        # Append the formatted data for charting
+        pre_test_score.append({"name": f"{course_title}", "y": avg_pre_test_score})
+        post_test_score.append({"name": f"{course_title}", "y": avg_post_test_score})
+
+
+
+    # pre_test_scores and post_test_scores now contain the data for each course
+
+
+
     cur.close()
 
-    return render_template('instructor/instructor_dashboard.html', total_attempts =total_attempts , course_count=course_count, quiz_count=quiz_count, total_questions=total_questions, chart_enroll_list_daily=chart_enroll_list_daily, chart_enroll_list_monthly=chart_enroll_list_monthly, chart_enroll_list_yearly=chart_enroll_list_yearly, instructor_image_url=instructor_image_url)
+    return render_template('instructor/instructor_dashboard.html',
+                           total_students_successfully=total_students_successfully,
+                           course_count=course_count,
+                           total_students=total_students,
+                           total_students_studying=total_students_studying,
+                           chart_enroll_list_daily=chart_enroll_list_daily,
+                           chart_enroll_list_monthly=chart_enroll_list_monthly,
+                           chart_enroll_list_yearly=chart_enroll_list_yearly,
+                           pre_test_score=pre_test_score,
+                           post_test_score=post_test_score,
+                           instructor_image_url=instructor_image_url)
+
 
 
 
@@ -789,15 +961,25 @@ def instructor_dashboard():
 @login_required
 @admin_required
 def instructor_table():
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
+    
     cur = mysql.connection.cursor()
-    cur.execute('''SELECT id, first_name, last_name, email, tel, DATE_FORMAT(birth_date, '%d/%m/%Y'), password, gender, role, instructorimage FROM instructor''')
+    cur.execute('''SELECT id, first_name, last_name, email, tel, DATE_FORMAT(registration_date, '%d/%m/%Y'), password, gender, role, instructorimage FROM instructor''')
     data = cur.fetchall()
 
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
+        
+    cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
     sweet_alert = request.args.get('sweet_alert')
-    return render_template('instructor/instructor_table.html', data=data, sweet_alert=sweet_alert, admin_image_url=admin_image_url)
+    return render_template('instructor/instructor_table.html', data=data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
 
 
 
@@ -808,9 +990,13 @@ app.config['UPLOAD_FOLDER_INSTRUCTOR'] = 'static/img/uploads/instructor'
 @login_required
 @admin_required
 def insert_instructor():
+    admin_image_url = "/static/img/avatars/admin.png"
+    
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
     cur.close()
 
     if request.method == 'POST':
@@ -820,7 +1006,6 @@ def insert_instructor():
         username = request.form['username']
         email = request.form['email']
         tel = request.form['tel']
-        birth = request.form['birth']
         password = request.form['password']
         gender = request.form['gender']
 
@@ -834,20 +1019,20 @@ def insert_instructor():
                 instructorimage_path = "../static/img/uploads/instructor/" + instructorimage_filename
 
         # Validate input data
-        if not all([first_name, last_name, username, email, tel, birth, password, gender]):
-            flash('Please fill out the form completely!', 'error')
+        if not all([first_name, last_name, username, email, tel, password, gender]):
+            return jsonify({'status': 'error', 'message': 'กรุณากรอกแบบฟอร์มให้ครบถ้วน!'})
         elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-            flash('Invalid email address!', 'error')
-        elif not re.match(r'^[A-Za-z0-9]+$', username):
-            flash('Username must contain only characters and numbers!', 'error')
+            return jsonify({'status': 'error', 'message': 'ที่อยู่อีเมล์ไม่ถูกต้อง!'})
+        elif not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$', username):
+            return jsonify({'status': 'error', 'message': 'ชื่อผู้ใช้จะต้องประกอบด้วยตัวอักษรและตัวเลขเท่านั้น!'})
         elif len(password) < 8:
-            flash("Password must be at least 8 characters long", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร'})
         elif not any(c.isupper() for c in password):
-            flash("Password must contain at least 1 uppercase letter", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องประกอบด้วยตัวอักษรพิมพ์ใหญ่อย่างน้อย 1 ตัว'})
         elif not any(c.islower() for c in password):
-            flash("Password must contain at least 1 lowercase letter", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องประกอบด้วยตัวอักษรพิมพ์เล็กอย่างน้อย 1 ตัว'})
         elif not any(c.isdigit() for c in password):
-            flash("Password must contain at least 1 digit", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 หลัก'})
         else:
             try:
                 # Check if account already exists
@@ -857,21 +1042,20 @@ def insert_instructor():
                 
                 if instructor:
                     if instructor['username'] == username:
-                        flash('Username already exists!', 'error')
+                        return jsonify({'status': 'error', 'message': 'มีชื่อผู้ใช้อยู่แล้ว!'})
                     elif instructor['email'] == email:
-                        flash('Email address already exists!', 'error')
+                        return jsonify({'status': 'error', 'message': 'ที่อยู่อีเมล์มีอยู่แล้ว!'})
                     return render_template('instructor/insert_instructor.html', admin_image_url=admin_image_url)
 
                 # If validation passes and no existing instructor, proceed with database insertion
                 registration_date = datetime.now()
-                cur.execute('''INSERT INTO instructor (first_name, last_name, username, email, tel, birth_date, registration_date, password, gender, role, instructorimage) 
-                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
-                            (first_name, last_name, username, email, tel, birth, registration_date, password, gender, 'instructor', instructorimage_path))
+                cur.execute('''INSERT INTO instructor (first_name, last_name, username, email, tel, registration_date, password, gender, role, instructorimage) 
+                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
+                            (first_name, last_name, username, email, tel, registration_date, password, gender, 'instructor', instructorimage_path))
                 mysql.connection.commit()
-                flash('Instructor successfully added', 'success')
-                return redirect(url_for('instructor_table'))
+                return jsonify({'status': 'success', 'message': 'เพิ่มผู้สอนสำเร็จแล้ว'})
             except Exception as e:
-                flash(f"An error occurred: {e}", 'error')
+                return jsonify({'status': 'error', 'message': f'เกิดข้อผิดพลาด: {e}'})
             finally:
                 cur.close()
     
@@ -890,12 +1074,16 @@ def insert_instructor():
 @login_required
 @admin_required
 def edit_instructor(id):
+    admin_image_url = "/static/img/avatars/admin.png"
+    
     cur = mysql.connection.cursor()
     cur.execute('SELECT * FROM instructor WHERE id = %s', (id,))
     instructor = cur.fetchone()
 
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
     cur.close()
     return render_template('instructor/updated_instructor.html', instructor=instructor, admin_image_url=admin_image_url)
 
@@ -918,43 +1106,51 @@ def updated_instructor():
         username = request.form.get('username')
         email = request.form.get('email')
         tel = request.form.get('tel')
-        birth = request.form.get('birth')
         gender = request.form.get('gender')
         instructorimage = request.files.get('instructorimage')  # Get the file from the form
-
-        instructorimage_filename = None
-        if instructorimage and allowed_file(instructorimage.filename):
-            filename = secure_filename(instructorimage.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER_INSTRUCTOR_UPDATED'], filename)
-            instructorimage.save(filepath)
-            instructorimage_filename = f"../{app.config['UPLOAD_FOLDER_INSTRUCTOR_UPDATED']}/{filename}"  # Set the correct path to access the file in Flask app
 
         # Check if instructor exists
         cur = mysql.connection.cursor()
         cur.execute("SELECT * FROM instructor WHERE id = %s", (id,))
         instructor = cur.fetchone()
+        
+        if not instructor:
+            cur.close()
+            flash('ไม่พบผู้สอน!', 'error')
+            return redirect(url_for('edit_instructor', id=id))
+
+        # Use existing image if no new image is uploaded
+        instructorimage_filename = instructor[10]  # Default to current image
+        if instructorimage and allowed_file(instructorimage.filename):
+            filename = secure_filename(instructorimage.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER_INSTRUCTOR_UPDATED'], filename)
+            instructorimage.save(filepath)
+            instructorimage_filename = f"../{app.config['UPLOAD_FOLDER_INSTRUCTOR_UPDATED']}/{filename}"  # Update with new image path if new image is uploaded
+        
         cur.close()
 
-        if not instructor:
-            flash('ไม่พบผู้สอน!', 'error')
-        elif not email or not re.match(r'[^@]+@[^@]+\.[^@]+', email):
+        # Validation checks for email and username
+        if not email or not re.match(r'[^@]+@[^@]+\.[^@]+', email):
             flash('ที่อยู่อีเมลที่ไม่ถูกต้อง!', 'error')
-        elif not username or not re.match(r'^[A-Za-z0-9]+$', username):
+            return redirect(url_for('edit_instructor', id=id))
+        elif not username or not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$', username):
             flash('ชื่อผู้ใช้จะต้องมีตัวอักษรและตัวเลขเท่านั้น!', 'error')
+            return redirect(url_for('edit_instructor', id=id))
         else:
             # Update the instructor in the database
             cur = mysql.connection.cursor()
             cur.execute('''
                 UPDATE instructor 
-                SET first_name = %s, last_name = %s, username = %s, email = %s, tel = %s, birth_date = %s, gender = %s, instructorimage = %s 
+                SET first_name = %s, last_name = %s, username = %s, email = %s, tel = %s, gender = %s, instructorimage = %s 
                 WHERE id = %s
-            ''', (first_name, last_name, username, email, tel, birth, gender, instructorimage_filename, id))
+            ''', (first_name, last_name, username, email, tel, gender, instructorimage_filename, id))
             mysql.connection.commit()
             cur.close()
 
             flash('อัปเดตข้อมูลผู้สอนเรียบร้อยแล้ว', 'success')
 
     return redirect(url_for('instructor_table'))
+
 
 
 # ลบ ผู้สอน
@@ -967,7 +1163,7 @@ def delete_instructor(id):
     mysql.connection.commit()
     cur.close()
 
-    flash('Instructor successfully Deleted', 'success')
+    flash('ลบผู้สอนสำเร็จแล้ว', 'success')
     return redirect(url_for('instructor_table'))
 
 
@@ -976,9 +1172,10 @@ def delete_instructor(id):
 @login_required
 def edit_password_instructor(id):
     if current_user.role not in ['admin', 'instructor']:
-        flash('คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'danger')
+        flash('คุณไม่มีสิทธิ์เข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
     
+    admin_image_url = "/static/img/avatars/admin.png"
     # Establish database connection
     cur = mysql.connection.cursor()
     
@@ -987,7 +1184,9 @@ def edit_password_instructor(id):
     instructor = cur.fetchone()
 
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
     if request.method == "POST":
         # Fetch form data
@@ -1038,21 +1237,33 @@ def allowed_file(filename):
 @app.route('/updated_profile', methods=['GET', 'POST'])
 @login_required
 def updated_profile():
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+    
     cur = mysql.connection.cursor()
     
+    cur.execute('SELECT * FROM admin WHERE id = %s', (current_user.id,))
+    admin = cur.fetchone()
+    
+    cur.execute('SELECT * FROM instructor WHERE id = %s', (current_user.id,))
+    instructor = cur.fetchone()
     # Fetch current user's admin image URL
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
-    
-    # Fetch current user's instructor image URL
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
+
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     
     cur.close()
 
     # Check if the current user has the appropriate role
     if current_user.role not in ['admin', 'instructor']:
-        flash("You are not authorized to access this page.", 'danger')
+        flash("คุณไม่มีสิทธิเข้าถึงหน้านี้", 'error')
         return redirect(url_for('home'))
 
     if request.method == "POST":
@@ -1060,38 +1271,56 @@ def updated_profile():
         first_name = request.form['first_name']
         last_name = request.form['last_name']
         email = request.form['email']
+        username = request.form['username']
         tel = request.form['tel']
         
         adminimage = request.files.get('adminimage', None)
         instructorimage = request.files.get('instructorimage', None)
+        
+        cur = mysql.connection.cursor()
+    
+        cur.execute('SELECT * FROM admin WHERE id = %s', (current_user.id,))
+        admin = cur.fetchone()
+        
+        cur.execute('SELECT * FROM instructor WHERE id = %s', (current_user.id,))
+        instructor = cur.fetchone()
 
-        adminimage_filename = None
+        adminimage_filename = admin[10] if admin else None
         if adminimage and allowed_file(adminimage.filename):
             filename = secure_filename(adminimage.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER_ADMIN_UPDATED'], filename)
             adminimage.save(filepath)
             adminimage_filename = f"../{app.config['UPLOAD_FOLDER_ADMIN_UPDATED']}/{filename}"
 
-        instructorimage_filename = None
+        instructorimage_filename = instructor[10] if instructor else None
         if instructorimage and allowed_file(instructorimage.filename):
             filename = secure_filename(instructorimage.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER_INSTRUCTOR_UPDATED'], filename)
             instructorimage.save(filepath)
             instructorimage_filename = f"../{app.config['UPLOAD_FOLDER_INSTRUCTOR_UPDATED']}/{filename}"
+            
+        if not email or not re.match(r'[^@]+@[^@]+\.[^@]+', email):
+            flash('ที่อยู่อีเมล์ไม่ถูกต้อง!', 'error')
+            return redirect(url_for('updated_profile'))
+        if not username or not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$', username):
+            flash('ชื่อผู้ใช้จะต้องประกอบด้วยตัวอักษรและตัวเลขเท่านั้น!', 'error')
+            return redirect(url_for('updated_profile'))
 
+        cur.close()
+        
         try:
             # Update profile based on role
             cur = mysql.connection.cursor()
             user_id = current_user.id
 
             if current_user.role == 'admin':
-                cur.execute('''UPDATE admin SET first_name = %s, last_name = %s, email = %s, tel = %s, adminimage = %s WHERE id = %s''', 
-                            (first_name, last_name, email, tel, adminimage_filename, user_id))
+                cur.execute('''UPDATE admin SET first_name = %s, last_name = %s, email = %s, username = %s, tel = %s, adminimage = %s WHERE id = %s''', 
+                            (first_name, last_name, email, username, tel, adminimage_filename, user_id))
                 session['adminimage'] = adminimage_filename
 
             elif current_user.role == 'instructor':
-                cur.execute('''UPDATE instructor SET first_name = %s, last_name = %s, email = %s, tel = %s, instructorimage = %s WHERE id = %s''', 
-                            (first_name, last_name, email, tel, instructorimage_filename, user_id))
+                cur.execute('''UPDATE instructor SET first_name = %s, last_name = %s, email = %s, username = %s, tel = %s, instructorimage = %s WHERE id = %s''', 
+                            (first_name, last_name, email, username, tel, instructorimage_filename, user_id))
                 session['instructorimage'] = instructorimage_filename
 
             mysql.connection.commit()
@@ -1101,20 +1330,21 @@ def updated_profile():
             session['first_name'] = first_name
             session['last_name'] = last_name
             session['email'] = email
+            session['username'] = username
             session['tel'] = tel
 
-            flash("Your profile has been successfully updated", 'success')
+            flash("โปรไฟล์ของคุณได้รับการอัปเดตเรียบร้อยแล้ว", 'success')
             if current_user.role == 'admin':
                 return redirect(url_for('admin_dashboard'))
             elif current_user.role == 'instructor':
                 return redirect(url_for('instructor_dashboard'))
 
         except Exception as e:
-            flash(f"An error occurred while updating your profile: {e}", 'danger')
+            flash(f"เกิดข้อผิดพลาดขณะอัปเดตโปรไฟล์ของคุณ: {e}", 'error')
             app.logger.error('Error updating profile', exc_info=True)
 
     # Render the profile update form for GET requests
-    return render_template('instructor/updated_profile.html', admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+    return render_template('instructor/updated_profile.html', admin=admin, instructor=instructor, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
 
 
 
@@ -1128,21 +1358,27 @@ def updated_profile():
 @app.route('/updated_password', methods=['GET', 'POST'])
 @login_required
 def updated_password():
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
 
     cur = mysql.connection.cursor()
     
     # Fetch current user's admin image URL
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
-    
-    # Fetch current user's instructor image URL
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
+
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     
     cur.close()
 
     if current_user.role not in ['admin', 'instructor']:
-        flash("You are not authorized to access this page.", 'danger')
+        flash("คุณไม่มีสิทธิเข้าถึงหน้านี้", 'error')
         return redirect(url_for('home'))
     
     if request.method == "POST":
@@ -1194,26 +1430,103 @@ def updated_password():
 
 # ------------------------------------ ส่วนของ ผู้ใช้(user) ---------------------------------------------------------
 
+@app.route('/user_dashboard', methods=['GET', 'POST'])
+@login_required
+def user_dashboard():
+    if current_user.role in ['user']:
+        # Create cursor object for SQL operations
+        user_image_url = "/static/img/avatars/user.png"
+        cur = mysql.connection.cursor()
+
+        # Fetch user image URL
+        cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            user_image_url = result[0]
+
+        # Fetch quiz attempts data, ordered by attempt_date descending
+        cur.execute('''
+            SELECT attempt_id, user_id, qa.quiz_id, l.lesson_name, c.title, MAX(score) as best_score, 
+            DATE_FORMAT(MAX(attempt_date), '%%d/%%m/%%Y : %%H:%%i:%%s') as formatted_attempt_date,
+            l.lesson_id
+            FROM quiz_attempts qa
+            JOIN quiz q ON qa.quiz_id = q.quiz_id
+            JOIN lesson l ON q.lesson_id = l.lesson_id
+            JOIN courses c ON l.course_id = c.id
+            WHERE user_id = %s
+            GROUP BY l.lesson_name, c.title;
+        ''', (current_user.id,))
+        data = cur.fetchall()
+
+
+
+        # Fetch enrollment data and count attempts
+        cur.execute('''
+            SELECT c.title, q.quiz_name, l.lesson_name, COUNT(qa.attempt_id) as attempts_count
+            FROM quiz_attempts qa
+            JOIN quiz q ON qa.quiz_id = q.quiz_id
+            JOIN lesson l ON q.lesson_id = l.lesson_id
+            JOIN courses c ON l.course_id = c.id
+            WHERE qa.user_id = %s
+            GROUP BY l.lesson_name, q.quiz_name;
+        ''', (current_user.id,))
+        enroll_data = cur.fetchall()
+
+        # Format data for Highcharts
+        chart_attempt = [{"name": f"{row[0]} - {row[2]}", "quiz": f"{row[1]} - {row[2]}", "y": row[3]} for row in enroll_data]
+
+        # Sort data from highest to lowest
+        sorted_chart_attempt = sorted(chart_attempt, key=itemgetter('y'), reverse=True)
+
+        # Close cursor
+        cur.close()
+
+        # Pass data to template
+        return render_template('user/user_dashboard.html', chart_attempt=sorted_chart_attempt, user_image_url=user_image_url, data=data)
+    else:
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
+        return redirect(url_for('home'))
+
+
+
+
+
+        
+        
 # ตารางผู้ใช้
 @app.route('/user_table')
 @login_required
+@admin_required
 def user_table():
-    if current_user.role in ['admin', 'instructor']:
+    if current_user.role in ['admin']:
+        user_image_url = "/static/img/avatars/user_dark.png"
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
-        cur.execute('''SELECT id, first_name, last_name, email, DATE_FORMAT(birth_date, '%d/%m/%Y'), password, gender, role, userimage FROM user''')
+        cur.execute('''SELECT id, first_name, last_name, email, DATE_FORMAT(registration_date, '%d/%m/%Y'), password, gender, role, userimage FROM user''')
         data = cur.fetchall()
+        
+        cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            user_image_url = result[0]
 
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
-        
-        # Fetch current user's instructor image URL
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
+
+            # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
         cur.close()
         sweet_alert = request.args.get('sweet_alert')
-        return render_template('user/user_table.html', data=data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+        return render_template('user/user_table.html', data=data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url, user_image_url=user_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
 
@@ -1223,21 +1536,29 @@ app.config['UPLOAD_FOLDER_USER'] = 'static/img/uploads/users'
 
 @app.route('/insert_user', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def insert_user():
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+    
     cur = mysql.connection.cursor()
     
     # Fetch current user's admin image URL
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "default_admin_image_path"
-    
-    # Fetch current user's instructor image URL
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
+
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     
     cur.close()
 
-    if current_user.role not in ['admin', 'instructor']:
-        flash('You are not authorized to access this page.', 'danger')
+    if current_user.role not in ['admin']:
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
     
     if request.method == 'POST':
@@ -1246,7 +1567,6 @@ def insert_user():
         last_name = request.form['last_name']
         username = request.form['username']
         email = request.form['email']
-        birth = request.form['birth']
         password = request.form['password']
         gender = request.form['gender']
 
@@ -1268,40 +1588,40 @@ def insert_user():
             
         if user:
             if user[3] == username:  # Using index 3 for username in the tuple
-                flash('Username already exists!', 'error')
+                return jsonify({'status': 'error', 'message': 'ชื่อผู้ใช้มีอยู่แล้ว!'})
             elif user[4] == email:  # Using index 4 for email in the tuple
-                flash('Email address already exists!', 'error')
+                return jsonify({'status': 'error', 'message': 'ที่อยู่อีเมล์มีอยู่แล้ว!'})
             cur.close()
             return render_template('user/insert_user.html')
 
         cur.close()
 
         # Validate input data
-        if not all([first_name, last_name, username, email, birth, password, gender]):
-            flash('Please fill out the form completely!', 'error')
+        if not all([first_name, last_name, username, email, password, gender]):
+            return jsonify({'status': 'error', 'message': 'กรุณากรอกแบบฟอร์มให้ครบถ้วน!'})
         elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-            flash('Invalid email address!', 'error')
-        elif not re.match(r'^[A-Za-z0-9]+$', username):
-            flash('Username must contain only characters and numbers!', 'error')
+            return jsonify({'status': 'error', 'message': 'ที่อยู่อีเมล์ไม่ถูกต้อง!'})
+        elif not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$', username):
+            return jsonify({'status': 'error', 'message': 'ชื่อผู้ใช้จะต้องประกอบด้วยตัวอักษรและตัวเลขเท่านั้น!'})
         elif len(password) < 8:
-            flash("Password must be at least 8 characters long", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร'})
         elif not any(c.isupper() for c in password):
-            flash("Password must contain at least 1 uppercase letter", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องประกอบด้วยตัวอักษรพิมพ์ใหญ่อย่างน้อย 1 ตัว'})
         elif not any(c.islower() for c in password):
-            flash("Password must contain at least 1 lowercase letter", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องประกอบด้วยตัวอักษรพิมพ์เล็กอย่างน้อย 1 ตัว'})
         elif not any(c.isdigit() for c in password):
-            flash("Password must contain at least 1 digit", 'error')
+            return jsonify({'status': 'error', 'message': 'รหัสผ่านต้องมีตัวเลขอย่างน้อย 1 หลัก'})
         else:
             # If validation passes, proceed with database insertion
             registration_date = datetime.now()
             cur = mysql.connection.cursor()
-            cur.execute('''INSERT INTO user (first_name, last_name, username, email, birth_date, registration_date, password, gender, role, userimage) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
-                        (first_name, last_name, username, email, birth, registration_date, password, gender, 'user', userimage_path))
+            cur.execute('''INSERT INTO user (first_name, last_name, username, email, registration_date, password, gender, role, userimage) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''', 
+                        (first_name, last_name, username, email, registration_date, password, gender, 'user', userimage_path))
             mysql.connection.commit()
             cur.close()
-            flash('User successfully added', 'success')
-            return redirect(url_for('user_table'))
+            return jsonify({'status': 'success', 'message': 'เพิ่มผู้ใช้สำเร็จแล้ว'})
+        
 
     # If it's a GET request or there are validation errors, render the form
     return render_template('user/insert_user.html', admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
@@ -1311,21 +1631,30 @@ def insert_user():
 # แก้ไขผู้ใช้
 @app.route('/edit_user/<id>', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def edit_user(id):
-    if current_user.role in ['admin', 'instructor']:
+    if current_user.role in ['admin']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+    
         cur = mysql.connection.cursor()
         cur.execute('SELECT * FROM user WHERE id = %s', (id,))
         user = cur.fetchone()
 
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
+            # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
         cur.close()
         return render_template('user/updated_user.html', user=user, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
 
@@ -1338,46 +1667,51 @@ def allowed_file(filename):
 
 @app.route('/updated_user', methods=['POST'])
 @login_required
+@admin_required
 def updated_user():
-    if current_user.role in ['admin', 'instructor']:
+    if current_user.role in ['admin']:
         if request.method == 'POST':
             id = request.form.get('id')
             first_name = request.form.get('first_name')
             last_name = request.form.get('last_name')
             username = request.form.get('username')
             email = request.form.get('email')
-            birth = request.form.get('birth')
             gender = request.form.get('gender')
             userimage = request.files.get('userimage')  # Get the file from the form
+            
 
+            # Check if account already exists
+            cur = mysql.connection.cursor()
+            cur.execute("SELECT * FROM user WHERE id = %s", (id,))
+            user = cur.fetchone()
+            
             # Set the userimage path if the filename is provided and is allowed
-            userimage_filename = None
+            userimage_filename = user[9]
             if userimage and allowed_file(userimage.filename):
                 filename = secure_filename(userimage.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER_USER_UPDATED'], filename)
                 userimage.save(filepath)
                 userimage_filename = f"../{app.config['UPLOAD_FOLDER_USER_UPDATED']}/{filename}"  # Set the correct path to access the file in Flask app
 
-            # Check if account already exists
-            cur = mysql.connection.cursor()
-            cur.execute("SELECT * FROM user WHERE id = %s", (id,))
-            user = cur.fetchone()
             cur.close()
 
             if not user:
                 flash('ไม่พบชื่อผู้ใช้!', 'error')
+                return redirect(url_for('edit_user', id=id))
             elif not email or not re.match(r'[^@]+@[^@]+\.[^@]+', email):
                 flash('ที่อยู่อีเมลที่ไม่ถูกต้อง!', 'error')
-            elif not username or not re.match(r'^[A-Za-z0-9]+$', username):
+                return redirect(url_for('edit_user', id=id))
+            elif not username or not re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$', username):
                 flash('ชื่อผู้ใช้จะต้องมีตัวอักษรและตัวเลขเท่านั้น!', 'error')
+                return redirect(url_for('edit_user', id=id))
             else:
                 # Update the user in the database
                 cur = mysql.connection.cursor()
                 cur.execute('''
                     UPDATE user 
-                    SET first_name = %s, last_name = %s, username = %s, email = %s, birth_date = %s, gender = %s, userimage = %s 
+                    SET first_name = %s, last_name = %s, username = %s, email = %s, gender = %s, userimage = %s 
                     WHERE id = %s
-                ''', (first_name, last_name, username, email, birth, gender, userimage_filename, id))
+                ''', (first_name, last_name, username, email, gender, userimage_filename, id))
                 mysql.connection.commit()
                 cur.close()
 
@@ -1385,38 +1719,43 @@ def updated_user():
 
         return redirect(url_for('user_table'))
     else:
-        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'error')
         return redirect(url_for('home'))
 
 
 # ลบผู้ใช้
 @app.route('/delete_user/<int:id>', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def delete_user(id):
-    if current_user.role in ['admin', 'instructor']:
+    if current_user.role in ['admin']:
         try:
             cur = mysql.connection.cursor()
             cur.execute('DELETE FROM user WHERE id = %s', (id,))
             mysql.connection.commit()
             cur.close()
 
-            flash('User successfully deleted', 'success')
+            flash('ลบผู้ใช้สำเร็จแล้ว', 'success')
         except Exception as e:
-            flash(f'An error occurred while deleting user: {str(e)}', 'error')
+            flash(f'เกิดข้อผิดพลาดขณะลบผู้ใช้: {str(e)}', 'error')
         
         return redirect(url_for('user_table'))
     else:
-        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'error')
         return redirect(url_for('home'))
     
 # แก้ไขรหัสของผู้ใช้
 @app.route('/edit_password_user/<int:id>', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def edit_password_user(id):
-    if current_user.role not in ['admin', 'instructor']:
-        flash("You are not authorized to access this page.", 'danger')
+    if current_user.role not in ['admin']:
+        flash("คุณไม่มีสิทธิเข้าถึงหน้านี้", 'error')
         return redirect(url_for('home'))
 
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+    
     # Establish database connection
     cur = mysql.connection.cursor()
     
@@ -1425,10 +1764,15 @@ def edit_password_user(id):
     user = cur.fetchone()
 
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
 
     if request.method == "POST":
         # Fetch form data
@@ -1471,14 +1815,86 @@ def edit_password_user(id):
 
 # ------------------------------------ ส่วนของ enroll ---------------------------------------------------------
 
-
-@app.route('/enroll_table')
+@app.route('/course_enroll_student')
 @login_required
-def enroll_table():
+def course_enroll_student():
     if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
-        cur.execute("""SELECT enroll_id, user_id, course_id, DATE_FORMAT(enroll_date, '%d/%m/%Y : %H:%i:%s') AS formatted_date FROM user_enroll""")
-        data = cur.fetchall()
+        
+        if current_user.role == 'admin':
+            # Admin can see all courses with the count of enrolled students
+            cur.execute('''SELECT c.id, c.featured_image, c.title, COUNT(e.course_id) as enroll_count
+                           FROM courses c
+                           LEFT JOIN user_enroll e ON c.id = e.course_id
+                           GROUP BY c.id''')
+        else:
+            # Instructors can only see courses they created with the count of enrolled students
+            cur.execute('''SELECT c.id, c.featured_image, c.title, COUNT(e.course_id) as enroll_count
+                           FROM courses c
+                           LEFT JOIN user_enroll e ON c.id = e.course_id
+                           WHERE c.instructor_id = %s
+                           GROUP BY c.id''', (current_user.id,))
+            
+        course_enroll_student = cur.fetchall()
+        
+        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
+
+        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
+
+        cur.close()
+
+        sweet_alert = request.args.get('sweet_alert')
+
+        return render_template('enroll/course_enroll_student.html',
+                               course_enroll_student=course_enroll_student, 
+                               sweet_alert=sweet_alert, 
+                               admin_image_url=admin_image_url, 
+                               instructor_image_url=instructor_image_url)
+    else:
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
+        return redirect(url_for('home'))
+
+
+
+@app.route('/enroll_table/<int:course_id>')
+@login_required
+def enroll_table(course_id):
+    if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+
+        cur = mysql.connection.cursor()
+
+        if current_user.role == 'admin':
+            cur.execute("""SELECT 
+                            enroll_id, 
+                            user_id, 
+                            course_id, 
+                            DATE_FORMAT(enroll_date, '%%d/%%m/%%Y : %%H:%%i:%%s') AS formatted_date, 
+                            DATE_FORMAT(completed_at, '%%d/%%m/%%Y : %%H:%%i:%%s') AS completed_at_date
+                        FROM user_enroll
+                        WHERE course_id = %s""", (course_id,))
+        else:
+            cur.execute("""SELECT 
+                            ue.enroll_id, 
+                            ue.user_id, 
+                            ue.course_id, 
+                            DATE_FORMAT(ue.enroll_date, '%%d/%%m/%%Y : %%H:%%i:%%s') AS formatted_date,
+                            DATE_FORMAT(completed_at, '%%d/%%m/%%Y : %%H:%%i:%%s') AS completed_at_date 
+                        FROM user_enroll ue
+                        JOIN courses c ON ue.course_id = c.id
+                        WHERE c.instructor_id = %s AND ue.course_id = %s""", (current_user.id, course_id))
+
+        enrollments = cur.fetchall()
 
         cur.execute('SELECT id, first_name, last_name FROM user')
         user_data = cur.fetchall()
@@ -1486,103 +1902,373 @@ def enroll_table():
         cur.execute('SELECT id, title FROM courses')
         course_data = cur.fetchall()
 
+        # คำนวณจำนวนควิซทั้งหมด
+        cur.execute("""SELECT COUNT(DISTINCT qv.quiz_id) AS total_quizzes
+                       FROM quiz_video qv
+                       JOIN lesson l ON qv.lesson_id = l.lesson_id
+                       WHERE l.course_id = %s AND qv.quiz_id IS NOT NULL""", [course_id])
+        total_quizzes = cur.fetchone()[0]
+
+        # คำนวณจำนวนวิดีโอทั้งหมด
+        cur.execute("""SELECT COUNT(DISTINCT qv.video_id) AS total_videos
+                       FROM quiz_video qv
+                       JOIN lesson l ON qv.lesson_id = l.lesson_id
+                       WHERE l.course_id = %s AND qv.quiz_id IS NULL""", [course_id])
+        total_videos = cur.fetchone()[0]
+
+        progress_data = {}
+        pending_data = {}
+
+        for enrollment in enrollments:
+            user_id = enrollment[1]
+            
+            # คำนวณจำนวนควิซที่เสร็จสิ้น
+            cur.execute("""SELECT COUNT(DISTINCT qa.quiz_id) AS quizzes_completed
+                           FROM quiz_attempts qa
+                           JOIN lesson l ON qa.lesson_id = l.lesson_id
+                           WHERE l.course_id = %s AND qa.user_id = %s AND qa.passed = 1""", (course_id, user_id))
+            quizzes_completed = cur.fetchone()[0]
+
+            # คำนวณจำนวนวิดีโอที่เสร็จสิ้น
+            cur.execute("""SELECT COUNT(DISTINCT va.video_id) AS videos_completed
+                           FROM video_attempts va
+                           JOIN lesson l ON va.lesson_id = l.lesson_id
+                           WHERE l.course_id = %s AND va.user_id = %s AND va.passed = 1""", (course_id, user_id))
+            videos_completed = cur.fetchone()[0]
+
+            total_tasks = total_quizzes + total_videos
+            tasks_completed = quizzes_completed + videos_completed
+            progress_percentage = int((tasks_completed / total_tasks) * 100) if total_tasks > 0 else 0
+            progress_percentage = min(progress_percentage, 100)
+
+            progress_data[user_id] = {
+                'quizzes_completed': quizzes_completed,
+                'videos_completed': videos_completed,
+                'progress_percentage': progress_percentage
+            }
+
+            # ดึงข้อมูลควิซที่ค้างอยู่
+            cur.execute("""SELECT q.quiz_id AS quiz_id, q.quiz_name AS quiz_title, l.lesson_id AS lesson_id, l.lesson_name AS lesson_name
+                           FROM quiz q
+                           JOIN lesson l ON q.lesson_id = l.lesson_id
+                           LEFT JOIN quiz_attempts qa ON q.quiz_id = qa.quiz_id AND qa.user_id = %s AND qa.passed = 1
+                           WHERE l.course_id = %s AND (qa.attempt_id IS NULL OR qa.passed = 0)""", 
+                           (user_id, course_id))
+            pending_quizzes = cur.fetchall()
+
+            # ดึงข้อมูลวิดีโอที่ค้างอยู่
+            cur.execute("""SELECT qv.video_id, qv.title, l.lesson_id AS lesson_id, l.lesson_name AS lesson_name
+                           FROM quiz_video qv
+                           JOIN lesson l ON qv.lesson_id = l.lesson_id
+                           LEFT JOIN video_attempts va ON qv.video_id = va.video_id AND va.user_id = %s AND va.passed = 1
+                           WHERE l.course_id = %s AND (va.attempt_id IS NULL OR va.passed = 0) AND qv.title != '-'""", 
+                           (user_id, course_id))
+            pending_videos = cur.fetchall()
+
+            pending_data[(user_id, course_id)] = {
+                'pending_quizzes': pending_quizzes,
+                'pending_videos': pending_videos
+            }
+
+        # ดึงภาพโปรไฟล์
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
+
         cur.close()
 
         sweet_alert = request.args.get('sweet_alert')
-        return render_template('enroll/enroll_table.html', data=data, user_data=user_data, course_data=course_data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+
+        return render_template('enroll/enroll_table.html', 
+                               enrollments=enrollments, 
+                               user_data=user_data, 
+                               course_data=course_data, 
+                               progress_data=progress_data,
+                               pending_data=pending_data,
+                               sweet_alert=sweet_alert, 
+                               admin_image_url=admin_image_url, 
+                               instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
-# -------------------------------------------------------------------------------------------------
 
-
-
-# ------------------------------------ ส่วนของ Quiz_attempts ---------------------------------------------------------
-
-
-@app.route('/attempts_table')
+@app.route('/course_attempts_student')
 @login_required
-def attempts_table():
+def course_attempts_student():
     if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
-        cur.execute('''SELECT attempt_id, user_id, quiz_id, lesson_id, score, DATE_FORMAT(attempt_date, '%d/%m/%Y : %H:%i:%s') AS formatted_date FROM quiz_attempts''')
+        
+        if current_user.role == 'admin':
+            # Admin can see all courses with the count of enrolled students
+            cur.execute('''SELECT c.id, c.featured_image, c.title, COUNT(e.course_id) as enroll_count
+                           FROM courses c
+                           LEFT JOIN user_enroll e ON c.id = e.course_id
+                           GROUP BY c.id''')
+        else:
+            # Instructors can only see courses they created with the count of enrolled students
+            cur.execute('''SELECT c.id, c.featured_image, c.title, COUNT(e.course_id) as enroll_count
+                           FROM courses c
+                           LEFT JOIN user_enroll e ON c.id = e.course_id
+                           WHERE c.instructor_id = %s
+                           GROUP BY c.id''', (current_user.id,))
+            
+        course_attempts_student = cur.fetchall()
+        
+        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
+
+        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
+
+        cur.close()
+
+        sweet_alert = request.args.get('sweet_alert')
+
+        return render_template('quiz_attempts/course_attempts_student.html',
+                               course_attempts_student=course_attempts_student, 
+                               sweet_alert=sweet_alert, 
+                               admin_image_url=admin_image_url, 
+                               instructor_image_url=instructor_image_url)
+    else:
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
+        return redirect(url_for('home'))
+
+
+
+@app.route('/attempts_table/<int:course_id>')
+@login_required
+def attempts_table(course_id):
+    if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
+        cur = mysql.connection.cursor()
+        
+        if current_user.role == 'admin':
+            # Admin can see all records, but only the latest attempt per lesson
+            cur.execute('''SELECT 
+                            qa.attempt_id, 
+                            qa.user_id, 
+                            qa.quiz_id,
+                            CONCAT(u.first_name, ' ', u.last_name) AS user_name,
+                            c.title AS course_title,
+                            q.quiz_name, 
+                            l.lesson_name, 
+                            qa.score, 
+                            DATE_FORMAT(MAX(qa.attempt_date), '%%d/%%m/%%Y : %%H:%%i:%%s') AS formatted_date,
+                            l.lesson_id
+                        FROM 
+                            quiz_attempts qa
+                        JOIN 
+                            quiz q ON qa.quiz_id = q.quiz_id
+                        JOIN 
+                            lesson l ON q.lesson_id = l.lesson_id
+                        JOIN 
+                            courses c ON l.course_id = c.id
+                        JOIN 
+                            user u ON qa.user_id = u.id
+                        WHERE
+                            l.course_id = %s
+                        GROUP BY 
+                            qa.user_id, l.lesson_id
+                        ORDER BY 
+                            MAX(qa.attempt_date);''', (course_id,))
+        elif current_user.role == 'instructor':
+            # Instructor can see only their own records, but only the latest attempt per lesson
+            cur.execute('''SELECT 
+                            qa.attempt_id, 
+                            qa.user_id, 
+                            qa.quiz_id,
+                            CONCAT(u.first_name, ' ', u.last_name) AS user_name,
+                            c.title AS course_title,
+                            q.quiz_name, 
+                            l.lesson_name, 
+                            qa.score, 
+                            DATE_FORMAT(MAX(qa.attempt_date), '%%d/%%m/%%Y : %%H:%%i:%%s') AS formatted_date,
+                            l.lesson_id
+                        FROM 
+                            quiz_attempts qa
+                        JOIN 
+                            quiz q ON qa.quiz_id = q.quiz_id
+                        JOIN 
+                            lesson l ON q.lesson_id = l.lesson_id
+                        JOIN 
+                            courses c ON l.course_id = c.id
+                        JOIN 
+                            user u ON qa.user_id = u.id
+                        WHERE 
+                            c.instructor_id = %s AND l.course_id = %s
+                        GROUP BY 
+                            qa.user_id, l.lesson_id
+                        ORDER BY 
+                            MAX(qa.attempt_date);''', (current_user.id, course_id))
+        
         data = cur.fetchall()
 
-        cur.execute('SELECT id, first_name, last_name FROM user')
-        user_data = cur.fetchall()
-
-        cur.execute('SELECT quiz_id, quiz_name FROM quiz')
-        quiz_data = cur.fetchall()
-
-        cur.execute('SELECT lesson_id, lesson_name FROM lesson')
-        lesson_data = cur.fetchall()
-
+        # Fetch admin and instructor images
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
+            
         cur.close()
 
         sweet_alert = request.args.get('sweet_alert')
-        return render_template('quiz_attempts/attempts_table.html', data=data, user_data=user_data, quiz_data=quiz_data, lesson_data=lesson_data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+        return render_template('quiz_attempts/attempts_table.html', 
+                               data=data, 
+                               sweet_alert=sweet_alert, 
+                               admin_image_url=admin_image_url, 
+                               instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
+
+
     
 
 
-@app.route('/view_attempts/<id>')
-def view_attempts(id):
-    if current_user.role in ['admin', 'instructor']:
+@app.route('/view_attempts/<int:user_id>/<int:lesson_id>')
+def view_attempts(user_id, lesson_id):
+    if current_user.role in ['admin', 'instructor', 'user']:
+        user_image_url = "/static/img/avatars/user.png"
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+
         cur = mysql.connection.cursor()
-        cur.execute("""SELECT courses.title AS course_title, quiz.quiz_name, lesson.lesson_name, CONCAT(instructor.first_name, ' ', instructor.last_name) AS instructor_name, quiz_attempts.question_count, quiz.passing_percentage, CONCAT(user.first_name, ' ', user.last_name) AS user_name, quiz_attempts.attempt_date
-                        FROM courses
-                        JOIN lesson ON courses.id = lesson.course_id
-                        JOIN quiz ON lesson.lesson_id = quiz.lesson_id
-                        JOIN instructor ON courses.instructor_id = instructor.id
-                        LEFT JOIN question ON quiz.quiz_id = question.quiz_id
-                        JOIN quiz_attempts ON quiz.quiz_id = quiz_attempts.quiz_id
-                        JOIN user ON quiz_attempts.user_id = user.id
-                        WHERE quiz_attempts.attempt_id = %s
-                        GROUP BY courses.title, quiz.quiz_name, lesson.lesson_name, instructor_name, quiz_attempts.question_count, quiz.passing_percentage, user_name, quiz_attempts.attempt_date;
-                    """, (id,))
-        data = cur.fetchall()
+        
+        # Fetch Pre-Test data
+        cur.execute("""  # SQL query for Pre-Test data
+            SELECT courses.title AS course_title, quiz.quiz_name, lesson.lesson_name, 
+                CONCAT(instructor.first_name, ' ', instructor.last_name) AS instructor_name, 
+                quiz_attempts.question_count, quiz.passing_percentage, 
+                CONCAT(user.first_name, ' ', user.last_name) AS user_name, 
+                DATE_FORMAT(quiz_attempts.attempt_date, '%%d/%%m/%%Y : %%H:%%i:%%s') as formatted_attempt_date
+            FROM courses
+            JOIN lesson ON courses.id = lesson.course_id
+            JOIN quiz ON lesson.lesson_id = quiz.lesson_id
+            JOIN instructor ON courses.instructor_id = instructor.id
+            JOIN quiz_attempts ON quiz.quiz_id = quiz_attempts.quiz_id
+            JOIN user ON quiz_attempts.user_id = user.id
+            WHERE quiz_attempts.user_id = %s AND quiz_attempts.lesson_id = %s
+            AND quiz.quiz_type = 'Pre-Test'
+            ORDER BY quiz_attempts.attempt_date DESC  # เรียงลำดับตามวันที่ล่าสุด
+            LIMIT 1;  # จำกัดผลลัพธ์ให้แสดงเพียงบรรทัดเดียว
+        """, (user_id, lesson_id,))
+        pre_test_data = cur.fetchall()
 
-        # Fetch the attempt details
-        cur.execute("""SELECT question_count, passing_percentage, score
-                        FROM quiz_attempts
-                        JOIN quiz ON quiz_attempts.quiz_id = quiz.quiz_id
-                        WHERE quiz_attempts.attempt_id = %s
-                    """, (id,))
-        attempts_data = cur.fetchall()
 
-        # Fetch user details
-        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        # Fetch Post-Test data
+        cur.execute("""  # SQL query for Post-Test data
+            SELECT courses.title AS course_title, quiz.quiz_name, lesson.lesson_name, 
+                CONCAT(instructor.first_name, ' ', instructor.last_name) AS instructor_name, 
+                quiz_attempts.question_count, quiz.passing_percentage, 
+                CONCAT(user.first_name, ' ', user.last_name) AS user_name, 
+                DATE_FORMAT(quiz_attempts.attempt_date, '%%d/%%m/%%Y : %%H:%%i:%%s') as formatted_attempt_date
+            FROM courses
+            JOIN lesson ON courses.id = lesson.course_id
+            JOIN quiz ON lesson.lesson_id = quiz.lesson_id
+            JOIN instructor ON courses.instructor_id = instructor.id
+            JOIN quiz_attempts ON quiz.quiz_id = quiz_attempts.quiz_id
+            JOIN user ON quiz_attempts.user_id = user.id
+            WHERE quiz_attempts.user_id = %s AND quiz_attempts.lesson_id = %s
+            AND quiz.quiz_type = 'Post-Test'
+            ORDER BY quiz_attempts.attempt_date DESC  # เรียงลำดับตามวันที่ล่าสุด
+            LIMIT 1;  # จำกัดผลลัพธ์ให้แสดงเพียงบรรทัดเดียว
+        """, (user_id, lesson_id,))
+        post_test_data = cur.fetchall()
 
-        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/instructor.png"
+
+        # Fetch attempt scoring details
+        cur.execute("""  # SQL query for attempt scoring details
+            SELECT quiz_attempts.question_count, quiz.passing_percentage, quiz_attempts.score
+            FROM quiz_attempts
+            JOIN quiz ON quiz_attempts.quiz_id = quiz.quiz_id
+            WHERE quiz_attempts.user_id = %s AND quiz_attempts.lesson_id = %s
+            AND quiz.quiz_type = 'Pre-Test'
+            ORDER BY quiz_attempts.attempt_date DESC  # เรียงลำดับตามวันที่ล่าสุด
+            LIMIT 1;
+        """, (user_id, lesson_id,))
+        pre_attempts_data = cur.fetchall()
+        
+        cur.execute("""  # SQL query for attempt scoring details
+            SELECT quiz_attempts.question_count, quiz.passing_percentage, quiz_attempts.score
+            FROM quiz_attempts
+            JOIN quiz ON quiz_attempts.quiz_id = quiz.quiz_id
+            WHERE quiz_attempts.user_id = %s AND quiz_attempts.lesson_id = %s
+            AND quiz.quiz_type = 'Post-Test'
+            ORDER BY quiz_attempts.attempt_date DESC  # เรียงลำดับตามวันที่ล่าสุด
+            LIMIT 1;
+        """, (user_id, lesson_id,))
+        post_attempts_data = cur.fetchall()
+
+        # Fetch images based on the current user's role
+        if current_user.role == 'user':
+            cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result and result[0]:
+                user_image_url = result[0]
+
+        elif current_user.role == 'admin':
+            cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result and result[0]:
+                admin_image_url = result[0]
+
+        elif current_user.role == 'instructor':
+            cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result and result[0]:
+                instructor_image_url = result[0]
 
         cur.close()
 
-        # Calculate the number of correct and incorrect answers
-        detailed_attempts_data = []
-        for attempt in attempts_data:
-            question_count = attempt[0]
+        # Process the attempt data to calculate correct/incorrect answers and percentage score
+        detailed_pre_attempts_data = []
+        for attempt in pre_attempts_data:
+            question_count = attempt[0] or 0
             passing_percentage = attempt[1]
-            score = attempt[2]
+            score = attempt[2] or 0
             correct_answers = score
             incorrect_answers = question_count - correct_answers
             percentage_score = (correct_answers / question_count) * 100 if question_count > 0 else 0
 
-            detailed_attempts_data.append({
+            detailed_pre_attempts_data.append({
+                'question_count': question_count,
+                'passing_percentage': passing_percentage,
+                'correct_answers': correct_answers,
+                'incorrect_answers': incorrect_answers,
+                'percentage_score': percentage_score
+            })
+            
+        detailed_post_attempts_data = []
+        for attempt in post_attempts_data:
+            question_count = attempt[0] or 0
+            passing_percentage = attempt[1]
+            score = attempt[2] or 0
+            correct_answers = score
+            incorrect_answers = question_count - correct_answers
+            percentage_score = (correct_answers / question_count) * 100 if question_count > 0 else 0
+
+            detailed_post_attempts_data.append({
                 'question_count': question_count,
                 'passing_percentage': passing_percentage,
                 'correct_answers': correct_answers,
@@ -1590,12 +2276,18 @@ def view_attempts(id):
                 'percentage_score': percentage_score
             })
 
-        return render_template('quiz_attempts/view_attempts.html', data=data, attempts_data=detailed_attempts_data, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+        # Render the view_attempts template with the fetched data
+        return render_template('quiz_attempts/view_attempts.html', 
+                               pre_test_data=pre_test_data, 
+                               post_test_data=post_test_data,
+                               pre_attempts_data=detailed_pre_attempts_data, 
+                               post_attempts_data=detailed_post_attempts_data,
+                               admin_image_url=admin_image_url, 
+                               instructor_image_url=instructor_image_url, 
+                               user_image_url=user_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
-
-
 
 
 
@@ -1613,37 +2305,53 @@ def view_attempts(id):
 @login_required
 def category_table():
     if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
         cur.execute('SELECT id, icon, name FROM categories')
         data = cur.fetchall()
 
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
+            # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
         cur.close()
         sweet_alert = request.args.get('sweet_alert')
         return render_template('category/category_table.html', data=data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
 # เพิ่มหมวดหมู่
 @app.route('/insert_category', methods=['GET', 'POST'])
 @login_required
 def insert_category():
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+    
     cur = mysql.connection.cursor()
 
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+            admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
 
     cur.close()
     if current_user.role not in ['admin', 'instructor']:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
     
     if request.method == 'POST':
@@ -1657,7 +2365,7 @@ def insert_category():
                         (icon, name))
         mysql.connection.commit()
         cur.close()
-        flash('category successfully added', 'success')
+        flash('เพิ่มหมวดหมู่สำเร็จแล้ว', 'success')
         return redirect(url_for('category_table'))
 
     # If it's a GET request or there are validation errors, render the form
@@ -1668,19 +2376,27 @@ def insert_category():
 @login_required
 def edit_category(id):
     if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
         cur.execute('SELECT * FROM categories WHERE id = %s', (id,))
         category = cur.fetchone()
 
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
+            # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
         cur.close()
         return render_template('category/updated_category.html', category=category, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
 # อัปเดตหมวดหมู่
@@ -1701,12 +2417,12 @@ def updated_category():
             mysql.connection.commit()
             cur.close()
 
-            flash('Category successfully updated', 'success')
+            flash('อัปเดตหมวดหมู่สำเร็จแล้ว', 'success')
     
         # Redirect to the category_table page regardless of the outcome
         return redirect(url_for('category_table'))
     else:
-        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'error')
         return redirect(url_for('home'))
 
 # ลบหมวดหมู่
@@ -1720,13 +2436,13 @@ def delete_category(id):
             mysql.connection.commit()
             cur.close()
 
-            flash('category successfully deleted', 'success')
+            flash('ลบหมวดหมู่สำเร็จแล้ว', 'success')
         except Exception as e:
             flash(f'An error occurred while deleting category: {str(e)}', 'error')
         
         return redirect(url_for('category_table'))
     else:
-        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'error')
         return redirect(url_for('home'))
 
 
@@ -1742,10 +2458,19 @@ def delete_category(id):
 @login_required
 def course_table():
     if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
         
-        # Fetch course data
-        cur.execute('''SELECT id, featured_image, title, instructor_id, category_id, DATE_FORMAT(created_at, '%d/%m/%Y : %H:%i:%s') AS formatted_date, status FROM courses''')
+        if current_user.role == 'admin':
+            # Admin can see all courses
+            cur.execute('''SELECT id, featured_image, title, instructor_id, category_id, DATE_FORMAT(created_at, '%d/%m/%Y : %H:%i:%s') AS formatted_date, status FROM courses''')
+        else:
+            # Instructors can only see courses they created
+            cur.execute('''SELECT id, featured_image, title, instructor_id, category_id, DATE_FORMAT(created_at, '%%d/%%m/%%Y : %%H:%%i:%%s') AS formatted_date, status 
+                          FROM courses WHERE instructor_id = %s''', (current_user.id,))
+        
         course_data = cur.fetchall()
         
         # Fetch instructor data
@@ -1756,11 +2481,17 @@ def course_table():
         cur.execute('SELECT id, name FROM categories')
         category_data = cur.fetchall()
 
-        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
-
-        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        if current_user.role == 'admin':
+            cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result and result[0]:
+                admin_image_url = result[0]
+        else:
+            # Fetch instructor image
+            cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result and result[0]:
+                instructor_image_url = result[0]
         
         cur.close()
         
@@ -1768,8 +2499,9 @@ def course_table():
         
         return render_template('course/course_table.html', course_data=course_data, instructor_data=instructor_data, category_data=category_data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
+
 
 
 
@@ -1779,29 +2511,43 @@ app.config['UPLOAD_FOLDER_COURSE'] = 'static/img/uploads/course'
 @app.route('/insert_course', methods=['GET', 'POST'])
 @login_required
 def insert_course():
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+    
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+    # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
     
     if current_user.role not in ['admin', 'instructor']:
-        flash("You are not authorized to access this page.", 'danger')
+        flash("คุณไม่มีสิทธิเข้าถึงหน้านี้", 'error')
         return redirect(url_for('home'))
 
     instructor = []
     categories = []
 
     try:
-        # Fetch instructors from the database
         cur = mysql.connection.cursor()
-        cur.execute("SELECT id, first_name, last_name FROM instructor")
+        
+        if current_user.role == 'admin':
+            # Admin can see all instructors
+            cur.execute("SELECT id, first_name, last_name FROM instructor")
+        else:
+            # Instructors can only see themselves
+            cur.execute("SELECT id, first_name, last_name FROM instructor WHERE id = %s", (current_user.id,))
+        
         instructor = cur.fetchall()
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching instructors: {e}", 'danger')
+        return jsonify({'status': 'error', 'message': f'เกิดข้อผิดพลาดขณะดึงข้อมูลผู้สอน: {e}'})
 
     try:
         # Fetch categories from the database
@@ -1810,7 +2556,7 @@ def insert_course():
         categories = cur.fetchall()
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching categories: {e}", 'danger')
+        return jsonify({'status': 'error', 'message': f'เกิดข้อผิดพลาดขณะดึงหมวดหมู่: {e}'})
 
     if request.method == 'POST':
         try:
@@ -1820,12 +2566,20 @@ def insert_course():
             title = request.form.get('title')
             instructor_id = request.form.get('instructor_id')
             category_id = request.form.get('category_id')
-            description = request.form.get('description')          
-            language = request.form.get('language')
-            deadline = request.form.get('deadline')
+            description = request.form.get('description')                     
             slug = request.form.get('slug')
             status = request.form.get('status')
-            certificate = request.form.get('certificate')
+            
+            if instructor_id:
+                cur = mysql.connection.cursor()
+                cur.execute("SELECT id FROM instructor WHERE id = %s", (instructor_id,))
+                instructor = cur.fetchone()
+                cur.close()
+
+                if not instructor:
+                    return jsonify({'status': 'warning', 'message': 'เลือกผู้สอนไม่ถูกต้อง กรุณาเลือกผู้สอนที่ถูกต้อง'})
+            else:
+                return jsonify({'status': 'warning', 'message': 'โปรดเลือกผู้สอน' , 'text': 'จำเป็นต้องระบุผู้สอน กรุณาเลือกผู้สอน'})
 
             # Check if category_id exists in categories table
             if category_id:
@@ -1835,11 +2589,10 @@ def insert_course():
                 cur.close()
 
                 if not category:
-                    flash("Invalid category selected. Please select a valid category.", 'danger')
-                    return redirect(url_for('insert_course'))
+                    return jsonify({'status': 'warning', 'message': 'เลือกหมวดหมู่ไม่ถูกต้อง กรุณาเลือกหมวดหมู่ที่ถูกต้อง'})
             else:
-                flash("Category is required. Please select a category.", 'danger')
-                return redirect(url_for('insert_course'))
+                return jsonify({'status': 'warning', 'message': 'โปรดเลือกหมวดหมู่' , 'text': 'จำเป็นต้องระบุหมวดหมู่ กรุณาเลือกหมวดหมู่'})
+            
 
             # Initialize featured_image_path with a default value
             featured_image_path = "../static/img/avatars/default.png"
@@ -1853,21 +2606,21 @@ def insert_course():
             # Add data to the database
             cur = mysql.connection.cursor()
             cur.execute("""
-                INSERT INTO courses (featured_image, featured_video, title, created_at, instructor_id, category_id, description, language, deadline, slug, status, certificate)
-                VALUES (%s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (featured_image_path, featured_video, title, instructor_id, category_id, description, language, deadline, slug, status, certificate))
+                INSERT INTO courses (featured_image, featured_video, title, created_at, instructor_id, category_id, description, slug, status)
+                VALUES (%s, %s, %s, NOW(), %s, %s, %s, %s, %s)
+            """, (featured_image_path, featured_video, title, instructor_id, category_id, description, slug, status))
             mysql.connection.commit()
             cur.close()
 
             # Redirect to the course table with a success message
-            flash("Course successfully added.", 'success')
-            return redirect(url_for('course_table'))
+            return jsonify({'status': 'success', 'message': 'เพิ่มหลักสูตรสำเร็จแล้ว'})
 
         except Exception as e:
-            flash(f"An error occurred while inserting the course: {e}", 'danger')
+            return jsonify({'status': 'error', 'message': f'เกิดข้อผิดพลาดขณะแทรกหลักสูตร: {e}'})
 
     # Render form for adding data
     return render_template('course/insert_course.html', instructor=instructor, categories=categories, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+
 
 
 
@@ -1875,12 +2628,21 @@ def insert_course():
 @app.route('/edit_course/<id>', methods=['GET', 'POST'])
 @login_required
 def edit_course(id):
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+        
     cur = mysql.connection.cursor()
+    
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
     if current_user.role in ['admin', 'instructor']:
 
@@ -1890,11 +2652,17 @@ def edit_course(id):
         try:
             # Fetch instructors from the database
             cur = mysql.connection.cursor()
-            cur.execute("SELECT id, first_name, last_name FROM instructor")
+            if current_user.role == 'admin':
+            # Admin can see all instructors
+                cur.execute("SELECT id, first_name, last_name FROM instructor")
+            else:
+                # Instructors can only see themselves
+                cur.execute("SELECT id, first_name, last_name FROM instructor WHERE id = %s", (current_user.id,))
+                
             instructor = cur.fetchall()
             cur.close()           
         except Exception as e:
-            flash("Failed to fetch instructors.", 'danger')
+            flash("ไม่สามารถดึงข้อมูลผู้สอนได้", 'error')
             print(str(e))
 
         try:
@@ -1904,7 +2672,7 @@ def edit_course(id):
             categories = cur.fetchall()
             cur.close()
         except Exception as e:
-            flash("Failed to fetch categories.", 'danger')
+            flash("ไม่สามารถดึงหมวดหมู่ได้", 'error')
             print(str(e))
 
         try:
@@ -1914,13 +2682,13 @@ def edit_course(id):
             course = cur.fetchone()
             cur.close()
         except Exception as e:
-            flash("Failed to fetch course details.", 'danger')
+            flash("ไม่สามารถดึงรายละเอียดหลักสูตรได้", 'error')
             print(str(e))
             course = None
 
         return render_template('course/updated_course.html', course=course, instructor=instructor, categories=categories, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
 
@@ -1937,7 +2705,7 @@ def allowed_file(filename):
 @login_required
 def updated_course():
     if current_user.role not in ['admin', 'instructor']:
-        flash("You are not authorized to access this page.", 'danger')
+        flash("คุณไม่มีสิทธิเข้าถึงหน้านี้", 'error')
         return redirect(url_for('home'))
 
     instructor = []
@@ -1950,7 +2718,7 @@ def updated_course():
         instructor = cur.fetchall()
         cur.close()
     except Exception as e:
-        flash("Failed to fetch instructors.", 'danger')
+        flash("ไม่สามารถดึงข้อมูลผู้สอนได้", 'error')
         print(str(e))
 
     try:
@@ -1960,7 +2728,7 @@ def updated_course():
         categories = cur.fetchall()
         cur.close()
     except Exception as e:
-        flash("Failed to fetch categories.", 'danger')
+        flash("ไม่สามารถดึงหมวดหมู่ได้", 'error')
         print(str(e))
 
     if request.method == 'POST':
@@ -1972,12 +2740,22 @@ def updated_course():
             title = request.form.get('title')
             instructor_id = request.form.get('instructor_id')
             category_id = request.form.get('category_id')
-            description = request.form.get('description')
-            language = request.form.get('language')
-            deadline = request.form.get('deadline')
+            description = request.form.get('description')        
             slug = request.form.get('slug')
             status = request.form.get('status')
-            certificate = request.form.get('certificate')
+            
+            if instructor_id:
+                cur = mysql.connection.cursor()
+                cur.execute("SELECT id FROM instructor WHERE id = %s", (instructor_id,))
+                instructor = cur.fetchone()
+                cur.close()
+
+                if not instructor:
+                    flash("เลือกผู้สอนไม่ถูกต้อง กรุณาเลือกผู้สอนที่ถูกต้อง", 'error')
+                    return redirect(url_for('updated_course'))
+            else:
+                flash("จำเป็นต้องระบุผู้สอน กรุณาเลือกผู้สอน", 'error')
+                return redirect(url_for('updated_course'))
 
             # Check if category_id exists in categories table
             if category_id:
@@ -1987,35 +2765,42 @@ def updated_course():
                 cur.close()
 
                 if not category:
-                    flash("Invalid category selected. Please select a valid category.", 'danger')
+                    flash("เลือกหมวดหมู่ไม่ถูกต้อง กรุณาเลือกหมวดหมู่ที่ถูกต้อง", 'error')
                     return redirect(url_for('updated_course'))
             else:
-                flash("Category is required. Please select a category.", 'danger')
+                flash("จำเป็นต้องระบุหมวดหมู่ กรุณาเลือกหมวดหมู่", 'error')
                 return redirect(url_for('updated_course'))
+            
+            cur = mysql.connection.cursor()
+            cur.execute("SELECT * FROM courses WHERE id = %s", (id,))
+            course = cur.fetchone()
+            
 
             # Initialize featured_image_path with a default value
-            featured_image_path = None
+            featured_image_path = course[1]
             if featured_image and allowed_file(featured_image.filename):
                 filename = secure_filename(featured_image.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER_COURSE_UPDATED'], filename)
                 featured_image.save(filepath)
                 featured_image_path = os.path.join(app.config['UPLOAD_FOLDER_COURSE_UPDATED'], filename)
+                
+            cur.close()
 
             # Update data in the database
             cur = mysql.connection.cursor()
             cur.execute("""
                 UPDATE courses 
-                SET featured_image=%s, featured_video=%s, title=%s, created_at=NOW(), instructor_id=%s, category_id=%s, description=%s, language=%s, deadline=%s, slug=%s, status=%s, certificate=%s
+                SET featured_image=%s, featured_video=%s, title=%s, created_at=NOW(), instructor_id=%s, category_id=%s, description=%s, slug=%s, status=%s
                 WHERE id=%s
-            """, (featured_image_path, featured_video, title, instructor_id, category_id, description, language, deadline, slug, status, certificate, id))
+            """, (featured_image_path, featured_video, title, instructor_id, category_id, description, slug, status, id))
             mysql.connection.commit()
             cur.close()
 
             # Redirect to the course table with a success message
-            flash("Course successfully updated.", 'success')
+            flash("อัปเดตหลักสูตรสำเร็จแล้ว", 'success')
             return redirect(url_for('course_table'))
         except Exception as e:
-            flash("Failed to update course.", 'danger')
+            flash("ไม่สามารถอัพเดตหลักสูตรได้", 'error')
             print(str(e))
 
     # Render form for updating data
@@ -2037,13 +2822,13 @@ def delete_course(id):
             mysql.connection.commit()
             cur.close()
 
-            flash('course successfully deleted', 'success')
+            flash('ลบหลักสูตรสำเร็จแล้ว', 'success')
         except Exception as e:
-            flash(f'An error occurred while deleting course: {str(e)}', 'error')
+            flash(f'เกิดข้อผิดพลาดขณะลบหลักสูตร: {str(e)}', 'error')
         
         return redirect(url_for('course_table'))
     else:
-        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบ.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบ.', 'error')
         return redirect(url_for('home'))
 
 # ------------------------------------------  End Course ------------------------------------------------------
@@ -2051,91 +2836,141 @@ def delete_course(id):
 
 # ------------------------------------------  ส่วนของชั้นเรียน / Lesson ------------------------------------------------------
 
-@app.route('/lesson_table')
+@app.route('/lesson_table/<int:course_id>')
 @login_required
-def lesson_table():
+def lesson_table(course_id):
     if current_user.role in ['admin', 'instructor']:
+        # Default image URLs
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
-        cur.execute('''SELECT lesson_id, lesson_name, DATE_FORMAT(lesson_date, '%d/%m/%Y : %H:%i:%s') AS formatted_date, course_id FROM lesson''')
+
+        # Fetch lessons for the given course ID
+        cur.execute('''SELECT lesson_id, lesson_name, DATE_FORMAT(lesson_date, '%%d/%%m/%%Y : %%H:%%i:%%s') AS formatted_date, course_id 
+                       FROM lesson 
+                       WHERE course_id = %s''', (course_id,))
         data = cur.fetchall()
 
+        # Fetch all courses
         cur.execute('SELECT id, title FROM courses')
         course_data = cur.fetchall()
-        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
 
-        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        # Fetch user image based on role
+        if current_user.role == 'admin':
+            cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result and result[0]:
+                admin_image_url = result[0]
+        elif current_user.role == 'instructor':
+            cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
+            result = cur.fetchone()
+            if result and result[0]:
+                instructor_image_url = result[0]
+
         cur.close()
 
         sweet_alert = request.args.get('sweet_alert')
-        return render_template('lesson/lesson_table.html', data=data, course_data=course_data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+        return render_template('lesson/lesson_table.html', data=data, course_data=course_data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url, course_id=course_id)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
+
 
 
 @app.route('/insert_lesson', methods=['GET', 'POST'])
 @login_required
 def insert_lesson():
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+    
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+    # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
+
     if current_user.role not in ['admin', 'instructor']:
-        flash('You do not have permission to access this page.', 'error')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
     
     course = []
+    course_id = None  # Set default value
 
     try:
-        # Fetch instructors from the database
         cur = mysql.connection.cursor()
-        cur.execute("SELECT id, title FROM courses")
+        if current_user.role == 'admin':
+            # Admin: Fetch all courses
+            cur.execute("SELECT id, title FROM courses")
+        elif current_user.role == 'instructor':
+            # Instructor: Fetch only courses created by the current instructor
+            cur.execute("SELECT id, title FROM courses WHERE instructor_id = %s", (current_user.id,))
         course = cur.fetchall()
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching instructors: {e}", 'danger')
+        flash(f"เกิดข้อผิดพลาดขณะดึงข้อมูลหลักสูตร: {e}", 'error')
+        
+    try:
+        cur = mysql.connection.cursor()
+        
+        if current_user.role == 'admin':
+            # Admin can see all instructors
+            cur.execute("SELECT id, first_name, last_name FROM instructor")
+        else:
+            # Instructors can only see themselves
+            cur.execute("SELECT id, first_name, last_name FROM instructor WHERE id = %s", (current_user.id,))
+        
+        instructor = cur.fetchall()
+        cur.close()
+    except Exception as e:
+        flash(f"เกิดข้อผิดพลาดขณะดึงข้อมูลผู้สอน: {e}", 'error')
     
     if request.method == 'POST':
         # Retrieve form data
         lesson_name = request.form.get('lesson_name')
-        course_id = request.form.get('course_id')
+        course_id = request.form.get('course_id')  # Retrieve course_id from form data
+        instructor_id = request.form.get('instructor_id')
         
         # Validate form data
-        if not lesson_name:
-            flash('Please provide all the required fields', 'error')
+        if not lesson_name or not course_id:
+            flash('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'error')
             return redirect(url_for('insert_lesson'))
 
         try:
             cur = mysql.connection.cursor()
             # Check if lesson already exists
-            cur.execute("SELECT * FROM lesson WHERE lesson_name = %s", (lesson_name,))
+            cur.execute("SELECT * FROM lesson WHERE lesson_name = %s AND course_id = %s", (lesson_name, course_id,))
             existing_lesson = cur.fetchone()
             
             if existing_lesson:
-                flash('Lesson already exists', 'error')
+                flash('บทเรียนมีอยู่แล้ว', 'error')
                 return redirect(url_for('insert_lesson'))
 
             # Insert lesson into the database
-            cur.execute('''INSERT INTO lesson (lesson_name, course_id) VALUES (%s, %s)''', (lesson_name, course_id))
+            cur.execute('''INSERT INTO lesson (lesson_name, course_id, instructor_id) VALUES (%s, %s, %s)''', (lesson_name, course_id, instructor_id))
             mysql.connection.commit()
 
-            flash('Lesson successfully added', 'success')
-            return redirect(url_for('lesson_table'))
+            flash('เพิ่มบทเรียนสำเร็จแล้ว', 'success')
+            return redirect(url_for('lesson_table', course_id=course_id))
         
         except Exception as e:
-            flash(f'An error occurred: {e}', 'error')
+            flash(f'เกิดข้อผิดพลาด: {e}', 'error')
             return redirect(url_for('insert_lesson'))
         
         finally:
             cur.close()
 
-    # If it's a GET request or there are validation errors, render the form
-    return render_template('lesson/insert_lesson.html', course=course, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+    # Render the form
+    return render_template('lesson/insert_lesson.html', course=course, instructor=instructor, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url, course_id=course_id)
+
+
 
 
 
@@ -2145,25 +2980,38 @@ def insert_lesson():
 @app.route('/edit_lesson/<id>', methods=['GET', 'POST'])
 @login_required
 def edit_lesson(id):
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+        
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
     if current_user.role not in ['admin', 'instructor']:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
     try:
         # Fetch lessons from the database
         cur = mysql.connection.cursor()
-        cur.execute("SELECT id, title FROM courses")
+        if current_user.role == 'admin':
+            # Admin: Fetch all courses
+            cur.execute("SELECT id, title FROM courses")
+        elif current_user.role == 'instructor':
+            # Instructor: Fetch only courses created by the current instructor
+            cur.execute("SELECT id, title FROM courses WHERE instructor_id = %s", (current_user.id,))
         course = cur.fetchall()
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching lessons: {e}", 'danger')
+        flash(f"เกิดข้อผิดพลาดขณะดึงบทเรียน: {e}", 'error')
 
 
     try:
@@ -2173,7 +3021,7 @@ def edit_lesson(id):
         lesson = cur.fetchone()
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching the quiz: {e}", 'danger')
+        flash(f"เกิดข้อผิดพลาดขณะดึงแบบทดสอบ: {e}", 'error')
 
 
     return render_template('lesson/updated_lesson.html', course=course, lesson=lesson, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
@@ -2187,7 +3035,7 @@ def edit_lesson(id):
 @login_required
 def updated_lesson():
     if current_user.role not in ['admin', 'instructor']:
-        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'error')
         return redirect(url_for('home'))
     
 
@@ -2200,7 +3048,7 @@ def updated_lesson():
         course = cur.fetchall()
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching courses: {e}", 'danger')
+        flash(f"เกิดข้อผิดพลาดขณะดึงข้อมูลหลักสูตร: {e}", 'error')
 
     if request.method == 'POST':
         lesson_id = request.form.get('lesson_id')
@@ -2209,14 +3057,14 @@ def updated_lesson():
 
         # Validate form data
         if not all([lesson_id, lesson_name, course_id]):
-            flash('กรุณากรอกข้อมูลให้ครบถ้วน.', 'danger')
-            return redirect(url_for('lesson_table'))
+            flash('กรุณากรอกข้อมูลให้ครบถ้วน.', 'error')
+            return redirect(url_for('lesson_table', course_id=course_id))
 
         try:
             lesson_id = int(lesson_id)
         except ValueError:
-            flash('รหัสบทเรียนไม่ถูกต้อง.', 'danger')
-            return redirect(url_for('lesson_table'))
+            flash('รหัสบทเรียนไม่ถูกต้อง.', 'error')
+            return redirect(url_for('lesson_table', course_id=course_id))
 
         try:
             cur = mysql.connection.cursor()
@@ -2226,8 +3074,8 @@ def updated_lesson():
             lesson = cur.fetchone()
 
             if not lesson:
-                flash('ไม่พบทเรียน.', 'danger')
-                return redirect(url_for('lesson_table'))
+                flash('ไม่พบทเรียน.', 'error')
+                return redirect(url_for('lesson_table', course_id=course_id))
 
             # อัปเดตข้อมูลบทเรียนในฐานข้อมูล
             cur.execute('''UPDATE lesson SET lesson_name = %s, lesson_date = NOW(), course_id = %s WHERE lesson_id = %s''',
@@ -2236,11 +3084,11 @@ def updated_lesson():
 
             flash('อัปเดตบทเรียนเรียบร้อยแล้ว', 'success')
         except Exception as e:
-            flash(f'เกิดข้อผิดพลาด: {str(e)}', 'danger')
+            flash(f'เกิดข้อผิดพลาด: {str(e)}', 'error')
         finally:
             cur.close()
 
-    return redirect(url_for('lesson_table', course=course))
+    return redirect(url_for('lesson_table', course_id=course_id))
 
 
 
@@ -2251,18 +3099,33 @@ def delete_lesson(id):
     if current_user.role in ['admin', 'instructor']:
         try:
             cur = mysql.connection.cursor()
+
+            # Fetch the course_id associated with this lesson
+            cur.execute('SELECT course_id FROM lesson WHERE lesson_id = %s', (id,))
+            course = cur.fetchone()
+            if not course:
+                flash('ไม่พบบทเรียนที่ต้องการลบ', 'error')
+                return redirect(url_for('lesson_table', course_id=0))  # Redirect to a safe default
+            
+            course_id = course[0]
+
+            # Delete the lesson
             cur.execute('DELETE FROM lesson WHERE lesson_id = %s', (id,))
             mysql.connection.commit()
             cur.close()
 
-            flash('Lesson successfully deleted', 'success')
-        except Exception as e:
-            flash(f'An error occurred while deleting lesson: {str(e)}', 'error')
+            flash('ลบบทเรียนสำเร็จแล้ว', 'success')
+
+            # Redirect to the lesson_table for the specific course
+            return redirect(url_for('lesson_table', course_id=course_id))
         
-        return redirect(url_for('lesson_table'))
+        except Exception as e:
+            flash(f'เกิดข้อผิดพลาดขณะลบบทเรียน: {str(e)}', 'error')
+            return redirect(url_for('lesson_table', course_id=course_id))
     else:
-        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'error')
         return redirect(url_for('home'))
+
 
 # ------------------------------------------  End Lesson ------------------------------------------------------
 
@@ -2274,8 +3137,11 @@ def delete_lesson(id):
 @login_required
 def add_quiz_video(lesson_id):
     if current_user.role not in ['admin', 'instructor']:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+
 
     # Establish a database cursor within the block where authorization is checked
     cur = mysql.connection.cursor()
@@ -2289,10 +3155,15 @@ def add_quiz_video(lesson_id):
     quiz_data = cur.fetchall()
 
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
 
     
     # Get sweet_alert message if passed as a query parameter
@@ -2312,6 +3183,9 @@ def add_quiz_video(lesson_id):
 @login_required
 def edit_quiz_video(id):
     if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
 
         # Fetch quiz video data
@@ -2329,16 +3203,21 @@ def edit_quiz_video(id):
         quizzes = cur.fetchall()
 
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
+            # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
 
         cur.close()
 
         return render_template('quiz_video/updated_quiz_video.html', quiz_video=quiz_video, quizzes=quizzes, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
 
@@ -2356,7 +3235,7 @@ def allowed_file(filename):
 @login_required
 def updated_quiz_video(id):
     if current_user.role not in ['admin', 'instructor']:
-        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'error')
         return redirect(url_for('home'))
 
     try:
@@ -2386,7 +3265,7 @@ def updated_quiz_video(id):
         video_data = cur.fetchone()
 
         if not video_data:
-            flash('ไม่พบคำถาม.', 'danger')
+            flash('ไม่พบคำถาม.', 'error')
             return redirect(url_for('home'))
 
         lesson_id = video_data[0]
@@ -2404,10 +3283,10 @@ def updated_quiz_video(id):
         flash('อัปเดตเรียบร้อยแล้ว', 'success')
 
     except mysql.connector.Error as err:
-        flash(f'Database error: {err}', 'danger')
+        flash(f'ข้อผิดพลาดฐานข้อมูล: {err}', 'error')
         app.logger.error(f'Database error: {err}')
     except Exception as e:
-        flash(f'An error occurred: {e}', 'danger')
+        flash(f'เกิดข้อผิดพลาด: {e}', 'error')
         app.logger.error(f'An error occurred: {e}')
     finally:
         cur.close()
@@ -2434,11 +3313,11 @@ def delete_quiz_video(id):
             mysql.connection.commit()
             cur.close()
 
-            flash('Successfully deleted', 'success')
+            flash('ลบสำเร็จแล้ว', 'success')
 
             return redirect(url_for('add_quiz_video', lesson_id=video_id))  # ระบุ quiz_id ไว้ในการสร้าง URL
         else:
-            flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'danger')
+            flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'error')
             return redirect(url_for('home'))
 
 
@@ -2447,15 +3326,23 @@ def delete_quiz_video(id):
 @app.route('/add_quiz/<int:lesson_id>', methods=['GET', 'POST'])
 @login_required
 def add_quiz(lesson_id):
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
     if current_user.role not in ['admin', 'instructor']:
-        flash('You do not have permission to access this page.', 'error')
+        flash('คุณไม่มีสิทธิในการเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
     
     quizzes = []
@@ -2468,7 +3355,7 @@ def add_quiz(lesson_id):
                        LEFT JOIN lesson ON quiz.lesson_id = lesson.lesson_id""")
         quizzes = cur.fetchall()
     except Exception as e:
-        flash(f"An error occurred while fetching quizzes: {e}", 'danger')
+        flash(f"เกิดข้อผิดพลาดขณะดึงแบบทดสอบ: {e}", 'error')
     finally:
         cur.close()
 
@@ -2477,7 +3364,7 @@ def add_quiz(lesson_id):
         quiz_id = request.form.get('quiz_id')
 
         if not quiz_id:
-            flash('Please provide the quiz id', 'error')
+            flash('กรุณาระบุรหัสแบบทดสอบ', 'error')
             return redirect(url_for('add_quiz', lesson_id=lesson_id))
 
         try:
@@ -2488,7 +3375,7 @@ def add_quiz(lesson_id):
             existing_quiz = cur.fetchone()
 
             if existing_quiz:
-                flash('This quiz is already associated with the lesson.', 'error')
+                flash('แบบทดสอบนี้เชื่อมโยงกับบทเรียนแล้ว', 'error')
             else:
                 # Insert quiz into the database
                 cur.execute("INSERT INTO quiz_video (quiz_id, lesson_id) VALUES (%s, %s)", (quiz_id, lesson_id))
@@ -2498,10 +3385,10 @@ def add_quiz(lesson_id):
                 # cur.execute("SELECT video_id FROM quiz_video WHERE lesson_id = %s", (lesson_id,))
                 # video_id = cur.fetchone()
 
-                flash('Quiz successfully added', 'success')
+                flash('เพิ่มแบบทดสอบสำเร็จแล้ว', 'success')
                 return redirect(url_for('add_quiz_video', lesson_id=lesson_id))  # Replace 'add_quiz_video' with the actual endpoint for the video page
         except Exception as e:
-            flash(f"An error occurred while adding the quiz: {e}", 'danger')
+            flash(f"เกิดข้อผิดพลาดขณะเพิ่มแบบทดสอบ: {e}", 'error')
         finally:
             cur.close()
 
@@ -2517,15 +3404,23 @@ app.config['UPLOAD_FOLDER_VIDEO'] = 'static/img/uploads/video_img'
 @app.route('/add_video/<int:lesson_id>', methods=['GET', 'POST'])
 @login_required
 def add_video(lesson_id):
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+        
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
     if current_user.role not in ['admin', 'instructor']:
-        flash('You do not have permission to access this page.', 'error')
+        flash('คุณไม่มีสิทธิในการเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
     if request.method == 'POST':
@@ -2549,7 +3444,7 @@ def add_video(lesson_id):
 
             # Validate form data
             if not title or not youtube_link or not description:
-                flash('Please provide all the required fields', 'error')
+                flash('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'error')
                 return redirect(url_for('add_video', lesson_id=lesson_id))
 
             # Database operations
@@ -2560,7 +3455,7 @@ def add_video(lesson_id):
             existing_video = cur.fetchone()
 
             if existing_video:
-                flash('A video for this lesson already exists', 'error')
+                flash('วิดีโอสำหรับบทเรียนนี้มีอยู่แล้ว', 'error')
 
             # Insert video into the database
             cur.execute('''INSERT INTO quiz_video (title, youtube_link, description, time_duration, preview, video_image, lesson_id) 
@@ -2568,14 +3463,14 @@ def add_video(lesson_id):
                         (title, youtube_link, description, time_duration, preview, videoimage_path, lesson_id))
             mysql.connection.commit()
 
-            flash('Video successfully added', 'success')
+            flash('เพิ่มวิดีโอสำเร็จแล้ว', 'success')
             return redirect(url_for('add_quiz_video', lesson_id=lesson_id))  # Replace with the actual endpoint for the video listing page
 
         except mysql.connector.Error as err:
-            flash(f'Database error: {err}', 'error')
+            flash(f'ข้อผิดพลาดฐานข้อมูล: {err}', 'error')
             app.logger.error(f'Database error: {err}')
         except Exception as e:
-            flash(f'An error occurred: {e}', 'error')
+            flash(f'เกิดข้อผิดพลาด: {e}', 'error')
             app.logger.error(f'An error occurred: {e}')
         finally:
             cur.close()
@@ -2588,30 +3483,34 @@ def add_video(lesson_id):
 # ------------------------------------------  ส่วนของแบบทดสอบ / Quiz ------------------------------------------------------
 
 # ตารางแบบทดสอบ
-@app.route('/quiz_table')
+@app.route('/quiz_table/<int:lesson_id>')
 @login_required
-def quiz_table():
+def quiz_table(lesson_id):
     if current_user.role in ['admin', 'instructor']:
         cur = mysql.connection.cursor()
         
         # Fetch quiz data with question count
         cur.execute('''
-            SELECT quiz.quiz_id, quiz.quiz_name, quiz.lesson_id, quiz.passing_percentage, DATE_FORMAT(quiz.quiz_date, '%d/%m/%Y : %H:%i:%s') AS formatted_date, COUNT(question.question_id) AS question_count
+            SELECT quiz.quiz_id, quiz.quiz_name, quiz.lesson_id, quiz.passing_percentage, DATE_FORMAT(quiz.quiz_date, '%%d/%%m/%%Y : %%H:%%i:%%s') AS formatted_date, COUNT(question.question_id) AS question_count
             FROM quiz
             LEFT JOIN question ON quiz.quiz_id = question.quiz_id
+            WHERE quiz.lesson_id = %s
             GROUP BY quiz.quiz_id, quiz.quiz_name, quiz.lesson_id, quiz.passing_percentage, quiz.quiz_date
-        ''')
+        ''', (lesson_id,))
         quiz_data = cur.fetchall()
         
         # Fetch lesson data
         cur.execute('SELECT lesson_id, lesson_name FROM lesson')
         lesson_data = cur.fetchall()
 
-        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        # Fetch admin and instructor images
+        cur.execute('SELECT adminimage FROM admin WHERE id = %s', (current_user.id,))
+        admin_result = cur.fetchone()
+        admin_image_url = admin_result[0] if admin_result and admin_result[0] else "/static/img/avatars/admin.png"
 
-        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        cur.execute('SELECT instructorimage FROM instructor WHERE id = %s', (current_user.id,))
+        instructor_result = cur.fetchone()
+        instructor_image_url = instructor_result[0] if instructor_result and instructor_result[0] else "/static/img/avatars/instructor.png"
 
         cur.close()
         
@@ -2619,8 +3518,9 @@ def quiz_table():
         
         return render_template('quiz/quiz_table.html', quiz_data=quiz_data, lesson_data=lesson_data, sweet_alert=sweet_alert, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
     else:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
+
 
 
 
@@ -2629,62 +3529,76 @@ def quiz_table():
 @app.route('/insert_quiz', methods=['GET', 'POST'])
 @login_required
 def insert_quiz():
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+    
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
+    
     if current_user.role not in ['admin', 'instructor']:
-        flash('You do not have permission to access this page.', 'error')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
     
     lesson = []
-
+    quiz_types = []  # This will hold the types for the dropdown
+    
     try:
-        # Fetch instructors from the database
         cur = mysql.connection.cursor()
-        cur.execute("SELECT lesson_id, lesson_name FROM lesson")
+        if current_user.role == 'admin':
+            cur.execute("SELECT lesson_id, lesson_name FROM lesson")
+        else:
+            cur.execute("""
+                SELECT lesson.lesson_id, CONCAT(courses.title, ' | ', lesson.lesson_name) AS course_lesson_name
+                FROM lesson
+                LEFT JOIN courses ON courses.id = lesson.course_id
+                WHERE lesson.instructor_id = %s
+            """, (current_user.id,))
         lesson = cur.fetchall()
+        
+        # Fetch ENUM values for quiz_type
+        cur.execute("SHOW COLUMNS FROM quiz WHERE Field = 'quiz_type'")
+        result = cur.fetchone()
+        enum_values = result[1] if result else ''
+        # Extract ENUM values
+        quiz_types = [val.strip("'") for val in enum_values.strip("enum()").split(",")]
+        
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching instructors: {e}", 'danger')
-    
+        flash(f"เกิดข้อผิดพลาดขณะดึงข้อมูล: {e}", 'error')
+
     if request.method == 'POST':
-        # Retrieve form data
         quiz_name = request.form.get('quiz_name')
         lesson_id = request.form.get('lesson_id')
         passing_percentage = request.form.get('passing_percentage')
+        quiz_type = request.form.get('quiz_type')
         
-        if not all([quiz_name, passing_percentage]):
-            flash('Please provide all the required fields', 'error')
+        if not all([quiz_name, lesson_id, passing_percentage, quiz_type]):
+            flash('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'error')
             return redirect(url_for('insert_quiz'))
 
         try:
             cur = mysql.connection.cursor()
-            # Check if question already exists
-            cur.execute("SELECT * FROM quiz WHERE quiz_name = %s AND passing_percentage = %s", 
-                        (quiz_name, passing_percentage))
-            existing_question = cur.fetchone()
-            
-            if existing_question:
-                flash('Question already exists', 'error')
-                return redirect(url_for('insert_quiz'))
-
-            # Insert question into the database
-            cur.execute('''INSERT INTO quiz (quiz_name, lesson_id, passing_percentage) VALUES (%s, %s, %s)''', 
-                        (quiz_name, lesson_id, passing_percentage))
+            cur.execute('''INSERT INTO quiz (quiz_name, quiz_type, lesson_id, passing_percentage) VALUES (%s, %s, %s, %s)''', 
+                        (quiz_name, quiz_type, lesson_id, passing_percentage))
             mysql.connection.commit()
 
-            flash('Question successfully added', 'success')
-            return redirect(url_for('quiz_table'))
+            flash('เพิ่มคำถามสำเร็จแล้ว', 'success')
+            return redirect(url_for('quiz_table', lesson_id=lesson_id))
        
         finally:
             cur.close()
 
-    # If it's a GET request or there are validation errors, render the form
-    return render_template('quiz/insert_quiz.html', lesson=lesson, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+    return render_template('quiz/insert_quiz.html', lesson=lesson, quiz_types=quiz_types, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+
 
 
 
@@ -2693,25 +3607,49 @@ def insert_quiz():
 @app.route('/edit_quiz/<id>', methods=['GET', 'POST'])
 @login_required
 def edit_quiz(id):
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+        
     cur = mysql.connection.cursor()
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
     cur.close()
     if current_user.role not in ['admin', 'instructor']:
-        flash('You are not authorized to access this page.', 'danger')
+        flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
     try:
         # Fetch lessons from the database
         cur = mysql.connection.cursor()
-        cur.execute("SELECT lesson_id, lesson_name FROM lesson")
+        if current_user.role == 'admin':
+            # Fetch all lessons if user is an admin
+            cur.execute("SELECT lesson_id, lesson_name FROM lesson")
+        else:
+            # Fetch only lessons created by the instructor if user is an instructor
+            cur.execute("""
+                SELECT lesson.lesson_id, CONCAT(courses.title, ' | ', lesson.lesson_name) AS course_lesson_name
+                FROM lesson
+                LEFT JOIN courses ON courses.id = lesson.course_id
+                WHERE lesson.instructor_id = %s
+            """, (current_user.id,))
         lesson = cur.fetchall()
+        
+        cur.execute("SHOW COLUMNS FROM quiz WHERE Field = 'quiz_type'")
+        result = cur.fetchone()
+        enum_values = result[1] if result else ''
+        # Extract ENUM values
+        quiz_types = [val.strip("'") for val in enum_values.strip("enum()").split(",")]
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching lessons: {e}", 'danger')
+        flash(f"เกิดข้อผิดพลาดขณะดึงบทเรียน: {e}", 'error')
 
 
     try:
@@ -2721,10 +3659,10 @@ def edit_quiz(id):
         quiz = cur.fetchone()
         cur.close()
     except Exception as e:
-        flash(f"An error occurred while fetching the quiz: {e}", 'danger')
+        flash(f"เกิดข้อผิดพลาดขณะดึงแบบทดสอบ: {e}", 'error')
 
 
-    return render_template('quiz/updated_quiz.html', quiz=quiz, lesson=lesson, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+    return render_template('quiz/updated_quiz.html', quiz=quiz, lesson=lesson, quiz_types=quiz_types, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
 
 
 
@@ -2734,55 +3672,48 @@ def edit_quiz(id):
 @login_required
 def updated_quiz():
     if current_user.role not in ['admin', 'instructor']:
-        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'error')
         return redirect(url_for('home'))
-    
-    lesson = []
 
-    try:
-        # Fetch lessons from the database
-        cur = mysql.connection.cursor()
-        cur.execute("SELECT lesson_id, lesson_name FROM lesson")
-        lesson = cur.fetchall()
-        cur.close()
-    except Exception as e:
-        flash(f"An error occurred while fetching lessons: {e}", 'danger')
-        return redirect(url_for('quiz_table'))
+    if request.method == 'POST':
+        # Retrieve form data
+        quiz_id = request.form.get('quiz_id')
+        quiz_name = request.form.get('quiz_name')
+        lesson_id = request.form.get('lesson_id')
+        passing_percentage = request.form.get('passing_percentage')
+        quiz_type = request.form.get('quiz_type')
 
-    quiz_id = request.form.get('quiz_id')
-    quiz_name = request.form.get('quiz_name')
-    lesson_id = request.form.get('lesson_id')
-    passing_percentage = request.form.get('passing_percentage')
+        if not all([quiz_id, lesson_id, quiz_name, passing_percentage, quiz_type]):
+            flash('กรุณากรอกข้อมูลให้ครบถ้วน.', 'error')
+            return redirect(url_for('quiz_table', lesson_id=lesson_id))
 
-    if not all([quiz_id, lesson_id, quiz_name, passing_percentage]):
-        flash('กรุณากรอกข้อมูลให้ครบถ้วน.', 'danger')
-        return redirect(url_for('quiz_table'))
+        try:
+            cur = mysql.connection.cursor()
 
-    try:
-        cur = mysql.connection.cursor()
+            # Check if the quiz exists
+            cur.execute("SELECT * FROM quiz WHERE quiz_id = %s", (quiz_id,))
+            quiz = cur.fetchone()
 
-        # ตรวจสอบว่ามีแบบทดสอบนี้อยู่ในระบบหรือไม่
-        cur.execute("SELECT * FROM quiz WHERE quiz_id = %s", (quiz_id,))
-        quiz = cur.fetchone()
+            if not quiz:
+                flash('ไม่พบแบบทดสอบ.', 'error')
+                cur.close()
+                return redirect(url_for('quiz_table', lesson_id=lesson_id))
 
-        if not quiz:
-            flash('ไม่พบแบบทดสอบ.', 'danger')
+            # Update quiz data
+            cur.execute('''UPDATE quiz SET quiz_name = %s, lesson_id = %s, passing_percentage = %s, quiz_type = %s, quiz_date = NOW() WHERE quiz_id = %s''',
+                        (quiz_name, lesson_id, passing_percentage, quiz_type, quiz_id))
+            mysql.connection.commit()
+            flash('อัปเดตแบบทดสอบเรียบร้อยแล้ว', 'success')
+        
+        except Exception as e:
+            flash(f'เกิดข้อผิดพลาด: {str(e)}', 'error')
+        
+        finally:
             cur.close()
-            return redirect(url_for('quiz_table'))
-
-        # อัปเดตข้อมูลแบบทดสอบในฐานข้อมูล
-        cur.execute('''UPDATE quiz SET quiz_name = %s, lesson_id = %s, passing_percentage = %s, quiz_date = NOW() WHERE quiz_id = %s''',
-                    (quiz_name, lesson_id, passing_percentage, quiz_id))
-        mysql.connection.commit()
-
-        flash('อัปเดตแบบทดสอบเรียบร้อยแล้ว', 'success')
-    except Exception as e:
-        flash(f'เกิดข้อผิดพลาด: {str(e)}', 'danger')
-    finally:
-        cur.close()
 
     # Redirect to the quiz table page with lessons and quiz data
-    return redirect(url_for('quiz_table', lesson=lesson))
+    return redirect(url_for('quiz_table', lesson_id=lesson_id))
+
 
 
 
@@ -2795,18 +3726,33 @@ def delete_quiz(id):
     if current_user.role in ['admin', 'instructor']:
         try:
             cur = mysql.connection.cursor()
+
+            # Fetch the lesson_id associated with this quiz
+            cur.execute('SELECT lesson_id FROM quiz WHERE quiz_id = %s', (id,))
+            quiz = cur.fetchone()
+            if not quiz:
+                flash('ไม่พบแบบทดสอบที่ต้องการลบ', 'error')
+                return redirect(url_for('quiz_table', lesson_id=0))  # Redirect to a safe default
+
+            lesson_id = quiz[0]
+
+            # Delete the quiz
             cur.execute('DELETE FROM quiz WHERE quiz_id = %s', (id,))
             mysql.connection.commit()
             cur.close()
 
-            flash('quiz successfully deleted', 'success')
-        except Exception as e:
-            flash(f'An error occurred while deleting quiz: {str(e)}', 'error')
+            flash('ลบแบบทดสอบสำเร็จแล้ว', 'success')
+
+            # Redirect to the quiz_table for the specific lesson
+            return redirect(url_for('quiz_table', lesson_id=lesson_id))
         
-        return redirect(url_for('quiz_table'))
+        except Exception as e:
+            flash(f'เกิดข้อผิดพลาดขณะลบแบบทดสอบ: {str(e)}', 'error')
+            return redirect(url_for('quiz_table', lesson_id=lesson_id))
     else:
-        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบแบบทดสอบนี้.', 'error')
         return redirect(url_for('home'))
+
 
 
 # --------------------------------------------------------------------------------------------------------------------------------
@@ -2814,16 +3760,24 @@ def delete_quiz(id):
 
 # ------------------------------------------------ ส่วนของคำถาม / Question --------------------------------------------------------------------------
 
+app.config['UPLOAD_FOLDER_QUESTION'] = 'static/img/uploads/question/'
+app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
 @app.route('/add_question/<int:quiz_id>', methods=['GET', 'POST'])
 @login_required
 def add_question(quiz_id):
-    # Ensure only authorized roles can access this route
     if current_user.role not in ['admin', 'instructor']:
-        flash('You do not have the necessary permissions', 'error')
-        return redirect(url_for('some_other_route'))
+        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้', 'error')
+        return redirect(url_for('home'))
+    
+    admin_image_url = "/static/img/avatars/admin.png"
+    instructor_image_url = "/static/img/avatars/instructor.png"
+        
 
     if request.method == 'POST':
-        # Retrieve and validate form data
         score = request.form.get('score')
         question_name = request.form.get('question_name')
         choice_a = request.form.get('choice_a')
@@ -2832,11 +3786,25 @@ def add_question(quiz_id):
         choice_d = request.form.get('choice_d')
         correct_answer = request.form.get('correct_answer')
 
-        if not all([score, question_name, choice_a, choice_b, choice_c, choice_d, correct_answer]):
-            flash('Please provide all the required fields', 'error')
+        if not all([score, question_name, correct_answer]):
+            flash('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'error')
             return redirect(url_for('add_question', quiz_id=quiz_id))
 
-        # Check if question already exists
+        def save_file(file_key):
+            file = request.files.get(file_key)
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER_QUESTION'], filename)
+                file.save(file_path)
+                return filename
+            return None
+
+        question_image = save_file('question_image')
+        choice_a_image = save_file('choice_a_image')
+        choice_b_image = save_file('choice_b_image')
+        choice_c_image = save_file('choice_c_image')
+        choice_d_image = save_file('choice_d_image')
+
         cur = mysql.connection.cursor()
         query = """SELECT * FROM question 
                    WHERE score = %s AND question_name = %s AND choice_a = %s AND choice_b = %s 
@@ -2846,37 +3814,38 @@ def add_question(quiz_id):
         cur.close()
 
         if existing_question:
-            flash('Question already exists', 'error')
+            flash('คำถามนี้มีอยู่แล้ว', 'error')
             return redirect(url_for('add_question', quiz_id=quiz_id))
 
-        # Insert question into the database
         cur = mysql.connection.cursor()
-        insert_query = """INSERT INTO question (score, question_name, choice_a, choice_b, choice_c, choice_d, correct_answer, quiz_id) 
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
-        cur.execute(insert_query, (score, question_name, choice_a, choice_b, choice_c, choice_d, correct_answer, quiz_id))
+        insert_query = """INSERT INTO question (score, question_name, choice_a, choice_b, choice_c, choice_d, correct_answer, quiz_id, question_image, choice_a_image, choice_b_image, choice_c_image, choice_d_image) 
+                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+        cur.execute(insert_query, (score, question_name, choice_a, choice_b, choice_c, choice_d, correct_answer, quiz_id, question_image, choice_a_image, choice_b_image, choice_c_image, choice_d_image))
         mysql.connection.commit()
         cur.close()
 
-        flash('Question successfully added', 'success')
+        flash('เพิ่มคำถามสำเร็จแล้ว', 'success')
         return redirect(url_for('add_question', quiz_id=quiz_id))
 
-    # If it's a GET request, retrieve existing questions to display
     cur = mysql.connection.cursor()
-    cur.execute("""SELECT question_id, score, question_name, choice_a, choice_b, choice_c, choice_d, correct_answer 
+    cur.execute("""SELECT question_id, score, question_name, choice_a, choice_b, choice_c, choice_d, correct_answer, question_image, choice_a_image, choice_b_image, choice_c_image, choice_d_image 
                    FROM question WHERE quiz_id = %s""", (quiz_id,))
     data = cur.fetchall()
 
     cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-    admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        admin_image_url = result[0]
 
+            # Fetch instructor image
     cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-    instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+    result = cur.fetchone()
+    if result and result[0]:
+        instructor_image_url = result[0]
 
     cur.close()
 
-    sweet_alert = request.args.get('sweet_alert')
-
-    return render_template('question/add_question.html', data=data, sweet_alert=sweet_alert, quiz_id=quiz_id, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+    return render_template('question/add_question.html', data=data, quiz_id=quiz_id, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
 
 
 
@@ -2884,67 +3853,118 @@ def add_question(quiz_id):
 @login_required
 def edit_question(id):
     if current_user.role in ['admin', 'instructor']:
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
+        
         cur = mysql.connection.cursor()
         cur.execute('SELECT * FROM question WHERE question_id = %s', (id,))
         question = cur.fetchone()
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
+            # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
         cur.close()
          
         # If user is not authorized, return a response here
         return render_template('question/updated_question.html', question=question, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
     else:
-            flash('You are not authorized to access this page.', 'danger')
+            flash('คุณไม่มีสิทธิเข้าถึงหน้านี้', 'error')
             return redirect(url_for('home'))
 
 
+
+app.config['UPLOAD_FOLDER_QUESTION'] = 'static/img/uploads/question/'
+app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 @app.route('/updated_question/<int:id>', methods=['GET', 'POST'])
 @login_required
 def updated_question(id):
     if current_user.role not in ['admin', 'instructor']:
-        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้.', 'danger')
+        flash('คุณไม่ได้รับอนุญาตให้เข้าถึงหน้านี้', 'error')
         return redirect(url_for('home'))
 
-    score = request.form.get('score')
-    question_name = request.form.get('question_name')
-    choice_a = request.form.get('choice_a')
-    choice_b = request.form.get('choice_b')
-    choice_c = request.form.get('choice_c')
-    choice_d = request.form.get('choice_d')
-    correct_answer = request.form.get('correct_answer')
+    if request.method == 'POST':
+        score = request.form.get('score')
+        question_name = request.form.get('question_name')
+        choice_a = request.form.get('choice_a')
+        choice_b = request.form.get('choice_b')
+        choice_c = request.form.get('choice_c')
+        choice_d = request.form.get('choice_d')
+        correct_answer = request.form.get('correct_answer')
 
-    try:
-        cur = mysql.connection.cursor()
+        def save_file(file_key):
+            file = request.files.get(file_key)
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER_QUESTION'], filename)
+                file.save(file_path)
+                return filename
+            return None
 
-        # ตรวจสอบว่ามีคำถามนี้อยู่ในระบบและดึง quiz_id
-        cur.execute("SELECT quiz_id FROM question WHERE question_id = %s", (id,))
-        quiz_data = cur.fetchone()
-        
-        if quiz_data:
-            quiz_id = quiz_data[0]  # รับ quiz_id จากการ query
+        question_image = save_file('question_image')
+        choice_a_image = save_file('choice_a_image')
+        choice_b_image = save_file('choice_b_image')
+        choice_c_image = save_file('choice_c_image')
+        choice_d_image = save_file('choice_d_image')
 
-            # อัปเดตข้อมูลคำถามในฐานข้อมูล
-            cur.execute('''UPDATE question SET score = %s, question_name = %s, choice_a = %s, choice_b = %s, choice_c = %s, choice_d = %s, correct_answer = %s WHERE question_id = %s''',
-                        (score, question_name, choice_a, choice_b, choice_c, choice_d, correct_answer, id))
-            mysql.connection.commit()
+        try:
+            cur = mysql.connection.cursor()
+            
+            # ดึงข้อมูลคำถามเก่าจากฐานข้อมูล
+            cur.execute("SELECT question_image, choice_a_image, choice_b_image, choice_c_image, choice_d_image, quiz_id FROM question WHERE question_id = %s", (id,))
+            question_data = cur.fetchone()
+            
+            if question_data:
+                quiz_id = question_data[5]  # รับ quiz_id จากการ query
 
-            flash('อัปเดตคำถามเรียบร้อยแล้ว', 'success')
-        else:
-            flash('ไม่พบคำถาม.', 'danger')
-            return redirect(url_for('home'))
+                # ใช้รูปเก่าถ้าไม่มีการอัปโหลดรูปใหม่
+                if not question_image:
+                    question_image = question_data[0]
+                if not choice_a_image:
+                    choice_a_image = question_data[1]
+                if not choice_b_image:
+                    choice_b_image = question_data[2]
+                if not choice_c_image:
+                    choice_c_image = question_data[3]
+                if not choice_d_image:
+                    choice_d_image = question_data[4]
 
-    except Exception as e:
-        flash(f'เกิดข้อผิดพลาด: {str(e)}', 'danger')
-    finally:
-        # ปิดคอนเน็กชันของฐานข้อมูล
-        cur.close()
+                # อัปเดตข้อมูลคำถามในฐานข้อมูล
+                update_query = '''UPDATE question 
+                                  SET score = %s, question_name = %s, choice_a = %s, choice_b = %s, 
+                                      choice_c = %s, choice_d = %s, correct_answer = %s, 
+                                      question_image = %s, choice_a_image = %s, choice_b_image = %s, 
+                                      choice_c_image = %s, choice_d_image = %s
+                                  WHERE question_id = %s'''
+                cur.execute(update_query, (
+                    score, question_name, choice_a, choice_b, choice_c, choice_d, 
+                    correct_answer, question_image, choice_a_image, choice_b_image, 
+                    choice_c_image, choice_d_image, id
+                ))
+                mysql.connection.commit()
 
-    # ส่งผู้ใช้กลับไปยังหน้าเพิ่มคำถามด้วย quiz_id
-    return redirect(url_for('add_question', quiz_id=quiz_id))
+                flash('อัปเดตคำถามเรียบร้อยแล้ว', 'success')
+            else:
+                flash('ไม่พบคำถาม.', 'error')
+                return redirect(url_for('home'))
+
+        except Exception as e:
+            flash(f'เกิดข้อผิดพลาด: {str(e)}', 'error')
+        finally:
+            # ปิดคอนเน็กชันของฐานข้อมูล
+            cur.close()
+
+        # ส่งผู้ใช้กลับไปยังหน้าเพิ่มคำถามด้วย quiz_id
+        return redirect(url_for('add_question', quiz_id=quiz_id))
 
 
 
@@ -2964,11 +3984,11 @@ def delete_question(id):
             mysql.connection.commit()
             cur.close()
 
-            flash('Question successfully deleted', 'success')
+            flash('ลบคำถามสำเร็จแล้ว', 'success')
 
             return redirect(url_for('add_question', quiz_id=quiz_id))  # ระบุ quiz_id ไว้ในการสร้าง URL
         else:
-            flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'danger')
+            flash('คุณไม่ได้รับอนุญาตให้ดำเนินการลบผู้ใช้นี้.', 'error')
             return redirect(url_for('home'))
 
 
@@ -2979,29 +3999,110 @@ def delete_question(id):
 @app.route('/home')
 @login_required
 def home():
+    user_image_url = "/static/img/avatars/user_dark.png"
+    admin_image_url = "/static/img/avatars/admin_dark.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
     try:
         # Create cursor object to execute SQL commands
         cur = mysql.connection.cursor()
 
-        # Execute SQL command to retrieve course details
+        # Execute SQL command to retrieve filtered course details
         cur.execute("""
             SELECT 
                 c.id, c.title, c.description, c.featured_image,
-                c.featured_video,
-                cat.name as category_name,
+                c.featured_video, cat.name as category_name,
                 CONCAT(i.first_name, ' ', i.last_name) AS instructor_name, 
-                i.instructorimage,
-                c.language, 
-                c.deadline, 
-                c.certificate, 
-                c.slug
+                i.instructorimage, c.slug
             FROM courses c
             JOIN categories cat ON c.category_id = cat.id
             JOIN instructor i ON c.instructor_id = i.id
+            WHERE c.status = 'PUBLISH'
         """)
         
-        # Fetch all course results
+        # Fetch all filtered course results
         courses_rows = cur.fetchall()
+
+        courses = []
+        for row in courses_rows:
+            course_id = row[0]
+            slug = row[8]
+            
+            # Fetch total time duration for each course
+            cur.execute("""
+                SELECT SUM(qv.time_duration) AS total_time_duration
+                FROM quiz_video qv
+                WHERE qv.lesson_id IN (
+                    SELECT l.lesson_id
+                    FROM lesson l
+                    WHERE l.course_id = %s
+                )
+            """, [course_id])
+            total_time_duration_result = cur.fetchone()
+            total_time_duration = int(total_time_duration_result[0]) if total_time_duration_result and total_time_duration_result[0] is not None else 0
+
+            # Fetch lesson count for each course
+            cur.execute("""
+                SELECT COUNT(l.lesson_id) AS lesson_count
+                FROM lesson l
+                JOIN courses c ON l.course_id = c.id
+                WHERE c.slug = %s
+            """, [slug])
+            lesson_count = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT 
+                    COUNT(DISTINCT qv.quiz_id) AS total_quizzes
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NOT NULL
+            """, [course_id])
+            total_quizzes = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT 
+                    COUNT(DISTINCT qv.video_id) AS total_videos
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NULL
+            """, [course_id])
+            total_videos = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT COUNT(DISTINCT qa.quiz_id) AS quizzes_completed
+                FROM quiz_attempts qa
+                JOIN lesson l ON qa.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qa.user_id = %s AND qa.passed = 1
+            """, (course_id, current_user.id))
+            quizzes_completed = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT COUNT(DISTINCT va.video_id) AS videos_completed
+                FROM video_attempts va
+                JOIN lesson l ON va.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND va.user_id = %s AND va.passed = 1
+            """, (course_id, current_user.id))
+            videos_completed = cur.fetchone()[0]
+
+            total_tasks = total_quizzes + total_videos
+            tasks_completed = quizzes_completed + videos_completed
+            progress_percentage = int((tasks_completed / total_tasks) * 100) if total_tasks > 0 else 0
+            progress_percentage = min(progress_percentage, 100)
+
+            # Add course data to the list
+            courses.append({
+                'id': row[0],
+                'title': row[1],
+                'description': row[2],
+                'featured_image': row[3],
+                'featured_video': row[4],
+                'category_name': row[5],
+                'instructor_name': row[6],
+                'instructor_image': row[7],
+                'slug': row[8],
+                'total_time_duration': total_time_duration,
+                'lesson_count': lesson_count,
+                'progress_percentage': progress_percentage
+            })
 
         # Execute SQL command to retrieve category details
         cur.execute("SELECT id, icon, name FROM categories")
@@ -3009,41 +4110,35 @@ def home():
         # Fetch all category results
         categories_rows = cur.fetchall()
 
+        # Fetch user image URL
         cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
-        user_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/user.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            user_image_url = result[0]
 
+        # Fetch admin image
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
+        # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        courses_rows = []
+        courses = []
         categories_rows = []
+        user_image_url = "/static/img/avatars/user_dark.png"
+        admin_image_url = "/static/img/avatars/admin.png"
+        instructor_image_url = "/static/img/avatars/instructor.png"
 
     finally:
         # Close cursor
         cur.close()
-
-    # Create list of course dictionaries for easier template rendering
-    courses = [
-        {
-            'id': row[0],
-            'title': row[1],
-            'description': row[2],
-            'featured_image': row[3],
-            'featured_video': row[4],
-            'category_name': row[5],
-            'instructor_name': row[6],
-            'instructor_image': row[7],
-            'language': row[8],
-            'deadline': row[9],
-            'certificate': row[10],
-            'slug': row[11]
-        } for row in courses_rows
-    ]
 
     # Create list of category dictionaries for easier template rendering
     categories = [
@@ -3055,14 +4150,28 @@ def home():
     ]
 
     # Render the template with the retrieved courses and categories
-    return render_template('main/home.html', courses=courses, categories=categories, user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+    return render_template('main/home.html', 
+                           courses=courses, 
+                           categories=categories, 
+                           user_image_url=user_image_url, 
+                           admin_image_url=admin_image_url, 
+                           instructor_image_url=instructor_image_url)
+
+
+
+
 
 
 
 
 
 @app.route('/about')
+@login_required
 def about():
+    user_image_url = "/static/img/avatars/user_dark.png"
+    admin_image_url = "/static/img/avatars/admin_dark.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
+    
     try:
         # Create cursor object to execute SQL commands
         cur = mysql.connection.cursor()
@@ -3074,14 +4183,12 @@ def about():
                 c.featured_video,
                 cat.name as category_name,
                 CONCAT(i.first_name, ' ', i.last_name) AS instructor_name, 
-                i.instructorimage,
-                c.language, 
-                c.deadline, 
-                c.certificate, 
+                i.instructorimage,                
                 c.slug
             FROM courses c
             JOIN categories cat ON c.category_id = cat.id
             JOIN instructor i ON c.instructor_id = i.id
+            WHERE c.status = 'PUBLISH'
         """)
         
         # Fetch all course results
@@ -3093,14 +4200,23 @@ def about():
         # Fetch all category results
         categories_rows = cur.fetchall()
 
+        # Fetch user image
         cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
-        user_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/user.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            user_image_url = result[0]
 
+        # Fetch admin image
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
+        # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -3122,10 +4238,7 @@ def about():
             'category_name': row[5],
             'instructor_name': row[6],
             'instructor_image': row[7],
-            'language': row[8],
-            'deadline': row[9],
-            'certificate': row[10],
-            'slug': row[11]
+            'slug': row[8]
         } for row in courses_rows
     ]
 
@@ -3142,11 +4255,39 @@ def about():
     return render_template('main/about.html', courses=courses, categories=categories, user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
 
 
-@app.route('/contact')
+
+@app.route('/contact', methods=['GET', 'POST'])
+@login_required
 def contact():
+    if request.method == 'POST':
+        # Handle the form submission
+        name = request.form['name']
+        email = request.form['email']
+        message = request.form['message']
+        
+        print(f"Sender email: {email}")
+
+        msg = Message('การส่งแบบฟอร์มการติดต่อใหม่',
+                      sender=email,
+                      recipients=['poplearning11@gmail.com'])  # เปลี่ยนเป็นอีเมลของแอดมิน
+        msg.body = f"Name: {name}\nEmail: {email}\n\nMessage: {message}"
+        
+
+        try:
+            mail.send(msg)
+            flash('ข้อความของคุณถูกส่งเรียบร้อยแล้ว!', 'success')
+        except Exception as e:
+            flash(f'เกิดข้อผิดพลาดขณะส่งอีเมล์: {e}', 'error')
+
+        return redirect(url_for('contact'))
+
+    user_image_url = "/static/img/avatars/user_dark.png"
+    admin_image_url = "/static/img/avatars/admin_dark.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
+
     try:
         # Create cursor object to execute SQL commands
-        cur = mysql.connection.cursor()
+        cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
         # Execute SQL command to retrieve course details
         cur.execute("""
@@ -3155,14 +4296,12 @@ def contact():
                 c.featured_video,
                 cat.name as category_name,
                 CONCAT(i.first_name, ' ', i.last_name) AS instructor_name, 
-                i.instructorimage,
-                c.language, 
-                c.deadline, 
-                c.certificate, 
+                i.instructorimage,                
                 c.slug
             FROM courses c
             JOIN categories cat ON c.category_id = cat.id
             JOIN instructor i ON c.instructor_id = i.id
+            WHERE c.status = 'PUBLISH'
         """)
         
         # Fetch all course results
@@ -3174,14 +4313,23 @@ def contact():
         # Fetch all category results
         categories_rows = cur.fetchall()
 
+        # Fetch user image
         cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
-        user_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/user.png"
+        result = cur.fetchone()
+        if result and result['userimage']:
+            user_image_url = result['userimage']
 
+        # Fetch admin image
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result['adminimage']:
+            admin_image_url = result['adminimage']
 
+        # Fetch instructor image
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result['instructorimage']:
+            instructor_image_url = result['instructorimage']
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -3195,27 +4343,24 @@ def contact():
     # Create list of course dictionaries for easier template rendering
     courses = [
         {
-            'id': row[0],
-            'title': row[1],
-            'description': row[2],
-            'featured_image': row[3],
-            'featured_video': row[4],
-            'category_name': row[5],
-            'instructor_name': row[6],
-            'instructor_image': row[7],
-            'language': row[8],
-            'deadline': row[9],
-            'certificate': row[10],
-            'slug': row[11]
+            'id': row['id'],
+            'title': row['title'],
+            'description': row['description'],
+            'featured_image': row['featured_image'],
+            'featured_video': row['featured_video'],
+            'category_name': row['category_name'],
+            'instructor_name': row['instructor_name'],
+            'instructor_image': row['instructorimage'],            
+            'slug': row['slug']
         } for row in courses_rows
     ]
 
     # Create list of category dictionaries for easier template rendering
     categories = [
         {
-            'id': row[0],
-            'icon': row[1],
-            'name': row[2]
+            'id': row['id'],
+            'icon': row['icon'],
+            'name': row['name']
         } for row in categories_rows
     ]
 
@@ -3224,14 +4369,20 @@ def contact():
 
 
 
+
 @app.route('/courses')
+@login_required
 def courses():
+    user_image_url = "/static/img/avatars/user_dark.png"
+    admin_image_url = "/static/img/avatars/admin_dark.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
+    
     try:
         # Create cursor object to execute SQL commands
         cur = mysql.connection.cursor()
 
         # Fetch total number of courses
-        cur.execute("SELECT COUNT(*) FROM courses")
+        cur.execute("SELECT COUNT(*) FROM courses WHERE courses.status = 'PUBLISH'")
         total_courses = cur.fetchone()[0]
 
         # Execute SQL command to retrieve course details
@@ -3241,14 +4392,12 @@ def courses():
                 c.featured_video,
                 cat.name as category_name,
                 CONCAT(i.first_name, ' ', i.last_name) AS instructor_name, 
-                i.instructorimage,
-                c.language, 
-                c.deadline, 
-                c.certificate, 
+                i.instructorimage, 
                 c.slug
             FROM courses c
             JOIN categories cat ON c.category_id = cat.id
             JOIN instructor i ON c.instructor_id = i.id
+            WHERE c.status = 'PUBLISH'
         """)
         
         # Fetch all course results
@@ -3256,45 +4405,113 @@ def courses():
 
         # Execute SQL command to retrieve category details
         cur.execute("SELECT id, icon, name FROM categories")
-        
-        # Fetch all category results
         categories_rows = cur.fetchall()
 
+        # Initialize lists to store additional course details
+        course_details = []
+
+        for course_row in courses_rows:
+            course_id = course_row[0]
+            slug = course_row[8]
+            
+            # Calculate the total time duration of quizzes and videos for each course
+            cur.execute("""
+                SELECT SUM(qv.time_duration) AS total_time_duration
+                FROM quiz_video qv
+                WHERE qv.lesson_id IN (
+                    SELECT l.lesson_id
+                    FROM lesson l
+                    WHERE l.course_id = %s
+                )
+            """, [course_id])
+            total_time_duration_result = cur.fetchone()
+            total_time_duration = int(total_time_duration_result[0]) if total_time_duration_result and total_time_duration_result[0] is not None else 0
+
+            # Fetch lesson count for each course
+            cur.execute("""
+                SELECT COUNT(l.lesson_id) AS lesson_count
+                FROM lesson l
+                JOIN courses c ON l.course_id = c.id
+                WHERE c.slug = %s
+            """, [slug])
+            lesson_count = cur.fetchone()[0]
+            
+            cur.execute("""
+                SELECT 
+                    COUNT(DISTINCT qv.quiz_id) AS total_quizzes
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NOT NULL
+            """, [course_id])
+            total_quizzes = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT 
+                    COUNT(DISTINCT qv.video_id) AS total_videos
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NULL
+            """, [course_id])
+            total_videos = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT COUNT(DISTINCT qa.quiz_id) AS quizzes_completed
+                FROM quiz_attempts qa
+                JOIN lesson l ON qa.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qa.user_id = %s AND qa.passed = 1
+            """, (course_id, current_user.id))
+            quizzes_completed = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT COUNT(DISTINCT va.video_id) AS videos_completed
+                FROM video_attempts va
+                JOIN lesson l ON va.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND va.user_id = %s AND va.passed = 1
+            """, (course_id, current_user.id))
+            videos_completed = cur.fetchone()[0]
+
+            total_tasks = total_quizzes + total_videos
+            tasks_completed = quizzes_completed + videos_completed
+            progress_percentage = int((tasks_completed / total_tasks) * 100) if total_tasks > 0 else 0
+            progress_percentage = min(progress_percentage, 100)
+
+            course_details.append({
+                'id': course_row[0],
+                'title': course_row[1],
+                'description': course_row[2],
+                'featured_image': course_row[3],
+                'featured_video': course_row[4],
+                'category_name': course_row[5],
+                'instructor_name': course_row[6],
+                'instructor_image': course_row[7],
+                'slug': course_row[8],
+                'total_time_duration': total_time_duration,
+                'lesson_count': lesson_count,
+                'progress_percentage': progress_percentage
+            })
+
         cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
-        user_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/user.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            user_image_url = result[0]
 
         cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
         cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        courses_rows = []
+        course_details = []
         categories_rows = []
 
     finally:
-        # Close cursor
         cur.close()
-
-    # Create list of course dictionaries for easier template rendering
-    courses = [
-        {
-            'id': row[0],
-            'title': row[1],
-            'description': row[2],
-            'featured_image': row[3],
-            'featured_video': row[4],
-            'category_name': row[5],
-            'instructor_name': row[6],
-            'instructor_image': row[7],
-            'language': row[8],
-            'deadline': row[9],
-            'certificate': row[10],
-            'slug': row[11]
-        } for row in courses_rows
-    ]
 
     # Create list of category dictionaries for easier template rendering
     categories = [
@@ -3305,14 +4522,23 @@ def courses():
         } for row in categories_rows
     ]
 
-    # Render the template with the retrieved courses and categories
-    return render_template('course/courses.html', total_courses=total_courses, courses=courses, categories=categories, user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
+    # Render the template with the retrieved course details and categories
+    return render_template(
+        'course/courses.html', 
+        total_courses=total_courses, 
+        courses=course_details, 
+        categories=categories, 
+        user_image_url=user_image_url, 
+        admin_image_url=admin_image_url, 
+        instructor_image_url=instructor_image_url
+    )
+
 
 
 
 
 class Course:
-    def __init__(self, id, title, description, featured_image, featured_video, category_name, instructor_name, instructor_image, language, deadline, certificate, slug, video_id, quiz_id):
+    def __init__(self, id, title, description, featured_image, featured_video, category_name, instructor_name, instructor_image, slug, video_id, quiz_id):
         self.id = id
         self.title = title
         self.description = description
@@ -3321,9 +4547,6 @@ class Course:
         self.category = {'name': category_name}
         self.instructor_name = {'name': instructor_name}
         self.instructor = {'instructorimage': instructor_image}
-        self.language = language
-        self.deadline = deadline
-        self.certificate = certificate
         self.slug = slug
         self.video_id = video_id
         self.quiz_id = quiz_id
@@ -3334,6 +4557,7 @@ class Course:
 
 
 @app.route('/<slug>')
+@login_required
 def course_details(slug):
     total_time_duration = 0
     lesson_count = 0
@@ -3341,6 +4565,9 @@ def course_details(slug):
     check_enroll = False
     questions = []
     enroll_data = ()
+    user_image_url = "/static/img/avatars/user_dark.png"
+    admin_image_url = "/static/img/avatars/admin_dark.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
 
     try:
         with mysql.connection.cursor() as cur:
@@ -3348,145 +4575,163 @@ def course_details(slug):
             cur.execute("""
                 SELECT 
                     c.id, c.title, c.description, c.featured_image, c.featured_video,
-                    cat.name as category_name,
+                    cat.name AS category_name,
                     CONCAT(i.first_name, ' ', i.last_name) AS instructor_name, 
-                    i.instructorimage,
-                    c.language, 
-                    c.deadline, 
-                    c.certificate, 
+                    i.instructorimage,                    
                     c.slug,
                     qv.video_id,
                     qv.quiz_id
                 FROM courses c
                 JOIN categories cat ON c.category_id = cat.id
                 JOIN instructor i ON c.instructor_id = i.id
-                JOIN lesson l ON l.course_id = c.id
-                JOIN quiz_video qv ON qv.lesson_id = l.lesson_id
+                LEFT JOIN lesson l ON l.course_id = c.id
+                LEFT JOIN quiz_video qv ON qv.lesson_id = l.lesson_id
                 LEFT JOIN quiz q ON qv.quiz_id = q.quiz_id
                 WHERE c.slug = %s
             """, [slug])
             
             course_row = cur.fetchone()
+            if not course_row:
+                abort(404)  # If no course is found, trigger a 404 error
 
-            if course_row:
-                course_id = course_row[0]
-                quiz_limit = 15
+            course_id = course_row[0]
+            quiz_limit = 10
 
-                # Check if the user is enrolled in the course
-                user_id = current_user.id if current_user.is_authenticated else None
-                if user_id:
-                    cur.execute("""
+            # Check if the user is enrolled in the course
+            user_id = current_user.id if current_user.is_authenticated else None
+            if user_id:
+                cur.execute("""
+                    SELECT 
+                        user_id,
+                        course_id,
+                        enroll_date,	
+                        is_completed,
+                        enroll_id,
+                        completed_at  
+                    FROM user_enroll
+                    WHERE user_id = %s AND course_id = %s
+                """, [user_id, course_id])
+                enroll_data = cur.fetchone()
+                check_enroll = enroll_data is not None
+            
+            # Fetch lesson names
+            cur.execute("SELECT l.lesson_id, l.lesson_name FROM lesson l WHERE l.course_id = %s", [course_id])
+            lesson_names = cur.fetchall()
+
+            lessons = []
+            for lesson in lesson_names:
+                lesson_id = lesson[0]
+                cur.execute("""
+                    WITH latest_quiz_attempts AS (
                         SELECT 
-                            user_id,
-                            course_id,
-                            enroll_date,	
-                            is_completed,
-                            enroll_id,
-                            completed_at  
-                        FROM user_enroll
-                        WHERE user_id = %s AND course_id = %s
-                    """, [user_id, course_id])
-                    enroll_data = cur.fetchone()
-                    check_enroll = enroll_data is not None
-                    
-
-                cur.execute("SELECT l.lesson_id, l.lesson_name FROM lesson l WHERE l.course_id = %s", [course_id])
-                lesson_names = cur.fetchall()
-
-                lessons = []
-                for lesson in lesson_names:
-                    lesson_id = lesson[0]
-                    cur.execute("""
-                        WITH latest_quiz_attempts AS (
-                            SELECT 
-                                quiz_id, 
-                                MAX(attempt_id) AS latest_attempt_id
-                            FROM quiz_attempts
-                            WHERE user_id = %s
-                            GROUP BY quiz_id
-                        ), lastest_video_attemts as (
-                            SELECT 
-                                video_id, 
-                                MAX(attempt_id) AS latest_attempt_id
-                            FROM video_attempts
-                            WHERE user_id = %s
-                            GROUP BY video_id
-                        )         
-                        SELECT qv.lesson_id, q.quiz_id, q.quiz_name, qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, COUNT(que.question_id) AS question_count, COALESCE(quiz_attempts.passed, va.passed, 0) AS passed
-                        FROM quiz_video qv
-                        LEFT JOIN question que ON qv.quiz_id = que.quiz_id
-                        LEFT JOIN quiz q ON q.quiz_id = qv.quiz_id
-                        LEFT JOIN (
-                            SELECT qa.quiz_id, qa.passed
-                            FROM quiz_attempts qa
-                            JOIN latest_quiz_attempts lqa
-                                on lqa.latest_attempt_id = qa.attempt_id
-                        ) quiz_attempts ON q.quiz_id = quiz_attempts.quiz_id
-                        LEFT JOIN (
-                            select va.video_id, va.passed from video_attempts va
-                            join lastest_video_attemts lva
-                                on lva.latest_attempt_id = va.attempt_id
-                        ) as va on va.video_id = qv.video_id 
-                        WHERE qv.lesson_id = %s
-                        GROUP BY qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, q.quiz_id, q.quiz_name, quiz_attempts.passed, va.passed;
-                    """, [user_id, user_id, lesson_id])
-                    quizzes = cur.fetchall()
-
-                    quizzes_data = [
-                        {
-                            'lesson_id': q[0], 
-                            'quiz_id': q[1], 
-                            'quiz_name': q[2], 
-                            'video_id': q[3], 
-                            'title': q[4], 
-                            'youtube_link': q[5], 
-                            'description': q[6], 
-                            'time_duration': q[7], 
-                            'preview': q[8], 
-                            'video_image': q[9], 
-                            'question_count': q[10] if q[10] < quiz_limit else quiz_limit, 
-                            'passed': q[11]
-                        } for q in quizzes
-                    ]
-
-                    lesson_data = {
-                        'lesson_id': lesson_id,
-                        'lesson_name': lesson[1],
-                        'quizzes': quizzes_data
-                    }
-                    lessons.append(lesson_data)
-
-                cur.execute("""
-                    SELECT SUM(qv.time_duration) AS total_time_duration
+                            quiz_id, 
+                            MAX(passed) AS passed  -- เพิ่ม MAX ที่นี่เพื่อดึงค่า passed ที่มากที่สุด
+                        FROM quiz_attempts
+                        WHERE user_id = %s
+                        GROUP BY quiz_id
+                    ), latest_video_attempts AS (
+                        SELECT 
+                            video_id, 
+                            MAX(passed) AS passed  -- เพิ่ม MAX ที่นี่เพื่อดึงค่า passed ที่มากที่สุด
+                        FROM video_attempts
+                        WHERE user_id = %s
+                        GROUP BY video_id
+                    )         
+                    SELECT 
+                        qv.lesson_id, 
+                        q.quiz_id, 
+                        q.quiz_name, 
+                        qv.video_id, 
+                        qv.title, 
+                        qv.youtube_link, 
+                        qv.description, 
+                        qv.time_duration, 
+                        qv.preview, 
+                        qv.video_image, 
+                        COUNT(que.question_id) AS question_count, 
+                        COALESCE(quiz_attempts.passed, va.passed, 0) AS passed
                     FROM quiz_video qv
-                    WHERE qv.lesson_id IN (
-                        SELECT l.lesson_id
-                        FROM lesson l
-                        WHERE l.course_id = %s
-                    )
-                """, [course_id])
-                total_time_duration_result = cur.fetchone()
-                if total_time_duration_result and total_time_duration_result[0] is not None:
-                    total_time_duration = int(total_time_duration_result[0])
+                    LEFT JOIN question que ON qv.quiz_id = que.quiz_id
+                    LEFT JOIN quiz q ON q.quiz_id = qv.quiz_id
+                    LEFT JOIN (
+                        SELECT qa.quiz_id, qa.passed
+                        FROM latest_quiz_attempts qa
+                    ) quiz_attempts ON q.quiz_id = quiz_attempts.quiz_id
+                    LEFT JOIN (
+                        SELECT va.video_id, va.passed
+                        FROM latest_video_attempts va
+                    ) AS va ON va.video_id = qv.video_id
+                    WHERE qv.lesson_id = %s
+                    GROUP BY 
+                        qv.video_id, 
+                        qv.title, 
+                        qv.youtube_link, 
+                        qv.description, 
+                        qv.time_duration, 
+                        qv.preview, 
+                        qv.video_image, 
+                        q.quiz_id, 
+                        q.quiz_name, 
+                        quiz_attempts.passed, 
+                        va.passed;
+                """, [user_id, user_id, lesson_id])
+                quizzes = cur.fetchall()
 
-                cur.execute("""
-                    SELECT COUNT(l.lesson_id) AS lesson_count
+                quizzes_data = [
+                    {
+                        'lesson_id': q[0], 
+                        'quiz_id': q[1], 
+                        'quiz_name': q[2], 
+                        'video_id': q[3], 
+                        'title': q[4], 
+                        'youtube_link': q[5], 
+                        'description': q[6], 
+                        'time_duration': q[7], 
+                        'preview': q[8], 
+                        'video_image': q[9], 
+                        'question_count': min(q[10], quiz_limit), 
+                        'passed': q[11]
+                    } for q in quizzes
+                ]
+
+                lesson_data = {
+                    'lesson_id': lesson_id,
+                    'lesson_name': lesson[1],
+                    'quizzes': quizzes_data
+                }
+                lessons.append(lesson_data)
+
+            # Calculate total time duration
+            cur.execute("""
+                SELECT SUM(qv.time_duration) AS total_time_duration
+                FROM quiz_video qv
+                WHERE qv.lesson_id IN (
+                    SELECT l.lesson_id
                     FROM lesson l
-                    JOIN courses c ON l.course_id = c.id
-                    WHERE c.slug = %s
-                """, [slug])
-                lesson_count = cur.fetchone()[0]
+                    WHERE l.course_id = %s
+                )
+            """, [course_id])
+            total_time_duration_result = cur.fetchone()
+            if total_time_duration_result and total_time_duration_result[0] is not None:
+                total_time_duration = int(total_time_duration_result[0])
 
-                cur.execute("""
-                    SELECT COUNT(DISTINCT ur.user_id) AS enroll_count
-                    FROM user_enroll ur
-                    JOIN courses c ON ur.course_id = c.id
-                    WHERE c.slug = %s
-                """, [slug])
-                user_enroll_count = cur.fetchone()[0]
+            # Calculate lesson count
+            cur.execute("""
+                SELECT COUNT(l.lesson_id) AS lesson_count
+                FROM lesson l
+                JOIN courses c ON l.course_id = c.id
+                WHERE c.slug = %s
+            """, [slug])
+            lesson_count = cur.fetchone()[0]
 
-            else:
-                lessons = []
+            # Calculate user enroll count
+            cur.execute("""
+                SELECT COUNT(DISTINCT ur.user_id) AS enroll_count
+                FROM user_enroll ur
+                JOIN courses c ON ur.course_id = c.id
+                WHERE c.slug = %s
+            """, [slug])
+            user_enroll_count = cur.fetchone()[0]
 
             # Fetch all categories for the dropdown menu
             cur.execute("SELECT id, icon, name FROM categories")
@@ -3494,20 +4739,83 @@ def course_details(slug):
 
             # Fetch all courses for navigation
             cur.execute("""
-                SELECT c.id, c.title, c.slug, cat.name as category_name
+                SELECT c.id, c.title, c.slug, cat.name AS category_name
                 FROM courses c
                 JOIN categories cat ON c.category_id = cat.id
+                WHERE c.status = 'PUBLISH'
             """)
             all_courses = cur.fetchall()
+            
+            cur.execute("""
+                SELECT 
+                    COUNT(DISTINCT qv.quiz_id) AS total_quizzes
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NOT NULL
+            """, [course_id])
+            total_quizzes = cur.fetchone()[0]
 
+            cur.execute("""
+                SELECT 
+                    COUNT(DISTINCT qv.video_id) AS total_videos
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NULL
+            """, [course_id])
+            total_videos = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT COUNT(DISTINCT qa.quiz_id) AS quizzes_completed
+                FROM quiz_attempts qa
+                JOIN lesson l ON qa.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qa.user_id = %s AND qa.passed = 1
+            """, (course_id, current_user.id))
+            quizzes_completed = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT COUNT(DISTINCT va.video_id) AS videos_completed
+                FROM video_attempts va
+                JOIN lesson l ON va.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND va.user_id = %s AND va.passed = 1
+            """, (course_id, current_user.id))
+            videos_completed = cur.fetchone()[0]
+
+            total_tasks = total_quizzes + total_videos
+            tasks_completed = quizzes_completed + videos_completed
+            progress_percentage = int((tasks_completed / total_tasks) * 100) if total_tasks > 0 else 0
+            progress_percentage = min(progress_percentage, 100)
+            
+            # ดึงข้อมูลการลงทะเบียนและสถานะการเรียน
+            cursor = mysql.connection.cursor()
+            cursor.execute("""
+                SELECT is_completed, c.slug
+                FROM user_enroll ur
+                JOIN courses c ON ur.course_id = c.id
+                WHERE user_id = %s AND c.slug = %s
+            """, (user_id, slug))
+            enroll_data_completed = cursor.fetchone()
+            cursor.close()
+
+            # ตั้งค่า is_completed
+            is_completed = enroll_data_completed[0] if enroll_data_completed else None
+
+            # Fetch user image
             cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
-            user_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/user.png"
+            result = cur.fetchone()
+            if result and result[0]:
+                user_image_url = result[0]
 
+            # Fetch admin image
             cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-            admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+            result = cur.fetchone()
+            if result and result[0]:
+                admin_image_url = result[0]
 
+            # Fetch instructor image
             cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-            instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+            result = cur.fetchone()
+            if result and result[0]:
+                instructor_image_url = result[0]
 
             def random_questions(quiz_id, limit):
                 cur.execute(""" 
@@ -3520,65 +4828,75 @@ def course_details(slug):
                 """, (quiz_id, limit))
                 return cur.fetchall()
 
-            # Fetch random questions for the quiz (assuming quiz_id is correctly defined)
+            # Fetch random questions for the quiz
             if course_row:
-                quiz_id = course_row[13]  # Adjust as per your application logic
-                questions = random_questions(quiz_id, 15)  # Adjust limit as needed
+                quiz_id = course_row[10]  # Adjust as per your application logic
+                questions = random_questions(quiz_id, 10)  # Adjust limit as needed
 
-            questions_data = [{'question_id': q[0], 'quiz_id': q[1], 'score': q[2], 'quiz_name': q[3], 'question_name': q[4], 'choice_a': q[5], 'choice_b': q[6], 'choice_c': q[7], 'choice_d': q[8], 'correct_answer': q[9]} for q in questions]
+            questions_data = [
+                {
+                    'question_id': q[0], 
+                    'quiz_id': q[1], 
+                    'score': q[2], 
+                    'quiz_name': q[3], 
+                    'question_name': q[4], 
+                    'choice_a': q[5], 
+                    'choice_b': q[6], 
+                    'choice_c': q[7], 
+                    'choice_d': q[8], 
+                    'correct_answer': q[9]
+                } for q in questions
+            ]
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        course_row = None
-        categories = []
-        lessons = []
-        all_courses = []
-        user_image_url = []
-        admin_image_url = []
-        instructor_image_url = []
-        questions_data = []
+        abort(404)
 
     finally:
         cur.close()
 
+    # Create a Course object
     if course_row:
         course = Course(
-            id= course_row[0],
-            title= course_row[1],
-            description= course_row[2],
-            featured_image= course_row[3],
-            featured_video= course_row[4],
-            category_name= course_row[5],
-            instructor_name= course_row[6],
-            instructor_image= course_row[7],
-            language= course_row[8],
-            deadline= course_row[9],
-            certificate= course_row[10],
-            slug= course_row[11],
-            video_id= course_row[12],
-            quiz_id= course_row[13]
+            id=course_row[0],
+            title=course_row[1],
+            description=course_row[2],
+            featured_image=course_row[3],
+            featured_video=course_row[4],
+            category_name=course_row[5],
+            instructor_name=course_row[6],
+            instructor_image=course_row[7],
+            slug=course_row[8],
+            video_id=course_row[9],
+            quiz_id=course_row[10]
         )
     else:
         course = None
 
+    # Prepare data for rendering
     categories = [{'id': row[0], 'icon': row[1], 'name': row[2]} for row in categories]
     courses = [{'id': row[0], 'title': row[1], 'slug': row[2], 'category_name': row[3]} for row in all_courses]
 
-    return render_template('course/course_details.html', 
-                           course=course, 
-                           categories=categories, 
-                           lessons=lessons, 
-                           courses=courses, 
-                           total_time_duration=total_time_duration, 
-                           lesson_count=lesson_count, 
-                           user_enroll_count=user_enroll_count, 
-                           check_enroll=check_enroll,
-                           questions=questions_data,
-                           limit=len(questions_data),
-                           user_image_url=user_image_url,
-                           admin_image_url=admin_image_url,
-                           instructor_image_url=instructor_image_url,
-                           enroll_data=enroll_data)
+    return render_template(
+        'course/course_details.html', 
+        course=course, 
+        categories=categories, 
+        lessons=lessons, 
+        courses=courses, 
+        total_time_duration=total_time_duration, 
+        lesson_count=lesson_count, 
+        user_enroll_count=user_enroll_count, 
+        check_enroll=check_enroll,
+        questions=questions_data,
+        limit=len(questions_data),
+        user_image_url=user_image_url,
+        admin_image_url=admin_image_url,
+        instructor_image_url=instructor_image_url,
+        enroll_data=enroll_data,
+        progress_percentage=progress_percentage,
+        is_completed=is_completed
+    )
+
 
 
 
@@ -3586,6 +4904,7 @@ def course_details(slug):
 
 
 @app.route('/enroll/<slug>')
+@login_required
 def enroll_course(slug):
     try:
         cur = mysql.connection.cursor()
@@ -3604,12 +4923,12 @@ def enroll_course(slug):
         """, [user_id, course_id, datetime.now()])
 
         mysql.connection.commit()
-        flash('You have successfully enrolled in the course!', 'success')
+        flash('คุณได้สมัครหลักสูตรสำเร็จแล้ว!', 'success')
 
     except Exception as e:
         print(f"An error occurred: {e}")
         mysql.connection.rollback()
-        flash('Failed to enroll in the course. Please try again later.', 'danger')
+        flash('ไม่สามารถลงทะเบียนเรียนหลักสูตรได้ กรุณาลองใหม่อีกครั้งในภายหลัง', 'error')
 
     finally:
         cur.close()
@@ -3644,6 +4963,7 @@ class Quiz_video:
 
 
 @app.route('/quiz/<slug>/<quiz_id>')
+@login_required
 def take_quiz(slug, quiz_id):
     user_id = current_user.id if current_user.is_authenticated else None
     try:
@@ -3705,7 +5025,7 @@ def take_quiz(slug, quiz_id):
             # Extract course ID and lesson ID from the fetched row
             course_id = video_row[0]
             lesson_id = video_row[11]  # Ensure lesson_id is correctly assigned
-            quiz_limit = 15
+            quiz_limit = 10
 
             # Fetch lessons associated with this course
             cur.execute("SELECT l.lesson_id, l.lesson_name FROM lesson l WHERE l.course_id = %s", [course_id])
@@ -3719,35 +5039,55 @@ def take_quiz(slug, quiz_id):
                 WITH latest_quiz_attempts AS (
                     SELECT 
                         quiz_id, 
-                        MAX(attempt_id) AS latest_attempt_id
+                        MAX(passed) AS passed  -- เพิ่ม MAX ที่นี่เพื่อดึงค่า passed ที่มากที่สุด
                     FROM quiz_attempts
                     WHERE user_id = %s
                     GROUP BY quiz_id
-                ), lastest_video_attemts as (
+                ), latest_video_attempts AS (
                     SELECT 
                         video_id, 
-                        MAX(attempt_id) AS latest_attempt_id
+                        MAX(passed) AS passed  -- เพิ่ม MAX ที่นี่เพื่อดึงค่า passed ที่มากที่สุด
                     FROM video_attempts
                     WHERE user_id = %s
                     GROUP BY video_id
                 )         
-                SELECT qv.lesson_id, q.quiz_id, q.quiz_name, qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, COUNT(que.question_id) AS question_count, COALESCE(quiz_attempts.passed, va.passed, 0) AS passed
+                SELECT 
+                    qv.lesson_id, 
+                    q.quiz_id, 
+                    q.quiz_name, 
+                    qv.video_id, 
+                    qv.title, 
+                    qv.youtube_link, 
+                    qv.description, 
+                    qv.time_duration, 
+                    qv.preview, 
+                    qv.video_image, 
+                    COUNT(que.question_id) AS question_count, 
+                    COALESCE(quiz_attempts.passed, va.passed, 0) AS passed
                 FROM quiz_video qv
                 LEFT JOIN question que ON qv.quiz_id = que.quiz_id
                 LEFT JOIN quiz q ON q.quiz_id = qv.quiz_id
                 LEFT JOIN (
                     SELECT qa.quiz_id, qa.passed
-                    FROM quiz_attempts qa
-                    JOIN latest_quiz_attempts lqa
-                        on lqa.latest_attempt_id = qa.attempt_id
+                    FROM latest_quiz_attempts qa
                 ) quiz_attempts ON q.quiz_id = quiz_attempts.quiz_id
                 LEFT JOIN (
-                    select va.video_id, va.passed from video_attempts va
-                    join lastest_video_attemts lva
-                        on lva.latest_attempt_id = va.attempt_id
-                ) as va on va.video_id = qv.video_id 
+                    SELECT va.video_id, va.passed
+                    FROM latest_video_attempts va
+                ) AS va ON va.video_id = qv.video_id
                 WHERE qv.lesson_id = %s
-                GROUP BY qv.video_id, qv.title, qv.youtube_link, qv.description, qv.time_duration, qv.preview, qv.video_image, q.quiz_id, q.quiz_name, quiz_attempts.passed, va.passed;
+                GROUP BY 
+                    qv.video_id, 
+                    qv.title, 
+                    qv.youtube_link, 
+                    qv.description, 
+                    qv.time_duration, 
+                    qv.preview, 
+                    qv.video_image, 
+                    q.quiz_id, 
+                    q.quiz_name, 
+                    quiz_attempts.passed, 
+                    va.passed;
                 """, [user_id, user_id, current_lesson_id])
                 quizzes = cur.fetchall()
 
@@ -3783,7 +5123,10 @@ def take_quiz(slug, quiz_id):
         # Function to fetch random questions
         def random_questions(quiz_id, limit):
             cur.execute(""" 
-                SELECT q.question_id, q.quiz_id, q.score, qz.quiz_name, q.question_name, q.choice_a, q.choice_b, q.choice_c, q.choice_d, q.correct_answer
+                SELECT q.question_id, q.quiz_id, q.score, qz.quiz_name, q.question_name, 
+                    q.choice_a, q.choice_b, q.choice_c, q.choice_d, 
+                    q.choice_a_image, q.choice_b_image, q.choice_c_image, q.choice_d_image,
+                    q.question_image, q.correct_answer
                 FROM question q
                 JOIN quiz qz ON q.quiz_id = qz.quiz_id
                 WHERE q.quiz_id = %s
@@ -3793,9 +5136,12 @@ def take_quiz(slug, quiz_id):
             return cur.fetchall()
 
         # Fetch random questions for the quiz
-        questions = random_questions(quiz_id, 15)  # Adjust limit as needed
+        questions = random_questions(quiz_id, 10)  # Adjust limit as needed
 
-        questions_data = [{'question_id': q[0], 'quiz_id': q[1], 'score': q[2], 'quiz_name': q[3], 'question_name': q[4], 'choice_a': q[5], 'choice_b': q[6], 'choice_c': q[7], 'choice_d': q[8], 'correct_answer': q[9]} for q in questions]
+        questions_data = [{'question_id': q[0], 'quiz_id': q[1], 'score': q[2], 'quiz_name': q[3], 'question_name': q[4], 
+                       'choice_a': q[5], 'choice_b': q[6], 'choice_c': q[7], 'choice_d': q[8], 
+                       'choice_a_image': q[9], 'choice_b_image': q[10], 'choice_c_image': q[11], 'choice_d_image': q[12],
+                       'question_image': q[13], 'correct_answer': q[14]} for q in questions]
 
         # Fetch passing score from database
         cur.execute("SELECT passing_percentage FROM quiz WHERE quiz_id = %s", (quiz_id,))
@@ -3868,6 +5214,7 @@ def calculate_score(form_data, quiz_id):
     questions = cur.fetchall()
     
     score = 0
+    answered_questions = 0  # To keep track of answered questions
     for question in questions:
         question_id = question[0]
         correct_answer = question[2]  # Index 2 for correct_answer
@@ -3880,18 +5227,22 @@ def calculate_score(form_data, quiz_id):
         # Debug print to check each question and answer
         print(f"Question ID: {question_id}, Correct Answer: {correct_answer}, User Answer: {user_answer}")
         
-        if user_answer == correct_answer:
-            score += question[1]  # Index 1 for score
+        if user_answer:
+            answered_questions += 1  # Increment the count of answered questions
+            if user_answer == correct_answer:
+                score += question[1]  # Index 1 for score
     
     cur.close()
     
-    # Return score and the number of questions
-    return score, len(questions)
+    # Return score and the number of answered questions
+    return score, answered_questions
+
 
 
 
 
 @app.route('/submit_quiz', methods=['POST'])
+@login_required
 def submit_quiz():
     # Extract data from the form
     user_id = request.form.get('user_id')
@@ -3932,10 +5283,19 @@ def submit_quiz():
 
 
 @app.route('/generate_certificate', methods=['GET'])
+@login_required
 def generate_certificate():
     
     user_id = current_user.id if current_user.is_authenticated else None
-    enroll_id = request.args.get('enroll_id')
+    target_user_id = request.args.get('user_id')  # รับ user_id ของผู้ใช้ที่ต้องการดาวน์โหลดใบเซอร์
+    enroll_id = request.args.get('enroll_id')  # รับ enroll_id เพื่อใช้ในการค้นหาข้อมูลใบเซอร์
+
+    if not target_user_id or not enroll_id:
+        return jsonify(success=False, error='Missing user_id or enroll_id')
+
+    # ตรวจสอบบทบาทของผู้ใช้
+    if not (current_user.role == 'user' or current_user.role == 'admin' or current_user.role == 'instructor'):
+        return jsonify(success=False, error='Unauthorized access')
     
 
     #fetch certificate data
@@ -3958,7 +5318,7 @@ def generate_certificate():
         and ue.user_id = %s
         and ue.is_completed is true
     """
-    cur.execute(certificate_data_sql, (enroll_id, user_id))
+    cur.execute(certificate_data_sql, (enroll_id, target_user_id))
     certificate_data = cur.fetchone()
 
     if not certificate_data:
@@ -3972,13 +5332,13 @@ def generate_certificate():
     cur.close()  # Close the cursor
 
     # Load the certificate template
-    template_path = 'static/img/certificate/certificate_template.png'
+    template_path = 'static/img/certificate/certificate_pop.jpg'
     template = Image.open(template_path)
     draw = ImageDraw.Draw(template)
     # Define font and text position
-    font_path = 'static/fonts/great_vibes/GreatVibes-Regular.ttf'  # Path to your font file
-    font_large = ImageFont.truetype(font_path, 140)
-    font = ImageFont.truetype(font_path, 50)
+    font_path = 'static/fonts/great_vibes/Prompt-Regular.ttf'  # Path to your font file
+    font_large = ImageFont.truetype(font_path, 80)
+    font = ImageFont.truetype(font_path, 30)
 
 
     # Get image dimensions
@@ -3996,18 +5356,18 @@ def generate_certificate():
         text_width = text_bbox[2] - text_bbox[0]
         position_x = position[0]
         if justify == 'center': 
-            position_x = position_x - text_width
+            position_x = position_x - text_width / 2
         draw.text((position_x, position[1]), text, font=font, fill=fill)
     
     
     # Position for user's name
     name_position_y = 700  # Adjust based on your template
     # Position for course name
-    course_position = (825, 1075)  # Adjust based on your template
+    course_position = (570, 1075)  # Adjust based on your template
     # Position for date
-    date_position = ( 1420, 1075)  # Adjust based on your template
+    date_position = ( 1410, 1075)  # Adjust based on your template
     # Position for certificate number
-    certificate_number_position = (1725, 210)  # Adjust based on your template
+    certificate_number_position = (1805, 90)  # Adjust based on your template
 
     # Draw the name, course name, date, and certificate number on the template
     draw_centered_text(draw, user_name, name_position_y, font_large)
@@ -4020,10 +5380,11 @@ def generate_certificate():
     template.save(certificate_io, 'PNG')
     certificate_io.seek(0)
 
-    return send_file(certificate_io, mimetype='image/png', as_attachment=True, download_name='certificate.png')
+    return send_file(certificate_io, mimetype='image/png', as_attachment=True, download_name=f'certificate_({user_name}).png')
 
 
 @app.route('/finish_course', methods=['PATCH'])
+@login_required
 def finish_course():
     # Extract data from the form
     data = request.get_json()
@@ -4046,9 +5407,8 @@ def finish_course():
         )  
         SELECT 
             c.slug ,
-            c.certificate,
             l.lesson_name,
-            q.quiz_name ,
+            q.quiz_type ,
             CASE WHEN lq.passed = 1 THEN true ELSE false END AS passed
         FROM courses c
         JOIN lesson l 
@@ -4062,7 +5422,7 @@ def finish_course():
                 on lqa.latest_attempt_id = qa.attempt_id
         ) lq ON lq.quiz_id = q.quiz_id
         WHERE c.id = %s
-        and q.quiz_name = 'Post-Test'
+        and q.quiz_type = 'Post-Test'
     """
     cur.execute(check_pass_all_lesson_sql, (user_id, course_id))
     test_results = cur.fetchall()
@@ -4070,7 +5430,7 @@ def finish_course():
     is_pass_all_test = True
     
     for test_result in test_results:
-        is_pass = test_result[4]
+        is_pass = test_result[3]
         if(not is_pass):
             is_pass_all_test = False
             break
@@ -4085,12 +5445,12 @@ def finish_course():
             mysql.connection.commit()
 
             # Fetch user name and course name from database
-            cur.execute("SELECT enroll_id FROM user_enroll WHERE user_id = %s", (user_id,))
+            cur.execute("SELECT enroll_id FROM user_enroll WHERE user_id = %s AND course_id = %s", (user_id, course_id))
             enroll_id = cur.fetchone()[0]
 
 
             # URL for generating the certificate with the user's name and course name
-            certificate_url = url_for('generate_certificate', enroll_id=enroll_id, _external=True)
+            certificate_url = url_for('generate_certificate', user_id=user_id,enroll_id=enroll_id, _external=True)
             
         except Exception as e:
             print(f"Error while updating course complete status: {e}")
@@ -4106,6 +5466,7 @@ def finish_course():
 
 
 @app.route('/start_video', methods=['POST'])
+@login_required
 def start_video():
     data = request.get_json()
     video_id = data.get('video_id')
@@ -4123,11 +5484,33 @@ def start_video():
 
     try:
         cursor = mysql.connection.cursor()
+
+        # Check if the video attempt already exists
         cursor.execute("""
-            INSERT INTO video_attempts (user_id, video_id, lesson_id, attempt_date, passed, watched_at)
-            VALUES (%s, %s, %s, NOW(), 0, NOW())
-            ON DUPLICATE KEY UPDATE passed=passed
+            SELECT passed FROM video_attempts 
+            WHERE user_id = %s AND video_id = %s AND lesson_id = %s
         """, (user_id, video_id, lesson_id))
+        result = cursor.fetchone()
+
+        if result:
+            # If record exists and passed is 1, do nothing
+            if result[0] == 1:
+                cursor.close()
+                return jsonify({'message': 'Video already completed'})
+            
+            # If record exists but passed is 0, update the watched_at time
+            cursor.execute("""
+                UPDATE video_attempts 
+                SET watched_at = NOW()
+                WHERE user_id = %s AND video_id = %s AND lesson_id = %s
+            """, (user_id, video_id, lesson_id))
+        else:
+            # Insert new record if it doesn't exist
+            cursor.execute("""
+                INSERT INTO video_attempts (user_id, video_id, lesson_id, attempt_date, passed, watched_at)
+                VALUES (%s, %s, %s, NOW(), 0, NOW())
+            """, (user_id, video_id, lesson_id))
+
         mysql.connection.commit()
         cursor.close()
         return jsonify({'message': 'Video started'})
@@ -4135,9 +5518,12 @@ def start_video():
         # Log the error
         print('Error:', e)
         return jsonify({'message': 'Error starting video'}), 500
+
+
     
 
 @app.route('/update_video_status', methods=['POST'])
+@login_required
 def update_video_status():
     data = request.get_json()
     video_id = data.get('video_id')
@@ -4184,6 +5570,7 @@ def update_video_status():
 
 
 @app.route('/video/<slug>/<video_id>')
+@login_required
 def watch_video(slug, video_id):
     user_id = current_user.id if current_user.is_authenticated else None
     try:
@@ -4251,7 +5638,7 @@ def watch_video(slug, video_id):
         # Extract course ID and lesson ID from the fetched row
         course_id = video_row[0]
         lesson_id = video_row[11]  # ตรวจสอบให้แน่ใจว่า lesson_id ถูกต้อง
-        quiz_limit = 15
+        quiz_limit = 10
 
         # Fetch lessons associated with this course
         cur.execute("SELECT l.lesson_id, l.lesson_name FROM lesson l WHERE l.course_id = %s", [course_id])
@@ -4359,7 +5746,7 @@ def watch_video(slug, video_id):
                 """, (quiz_id, limit))
                 return cur.fetchall()
 
-            questions = random_questions(video_row[10], 15)  # Adjust limit as needed
+            questions = random_questions(video_row[10], 10)  # Adjust limit as needed
 
             questions_data = [
                 {
@@ -4424,6 +5811,7 @@ def get_first_lesson(slug):
 
 
 @app.route('/start_course/<slug>')
+@login_required
 def start_course(slug):
     first_lesson = get_first_lesson(slug)
     if first_lesson:
@@ -4459,6 +5847,7 @@ def start_course(slug):
 
 # สร้างลิงก์ URL สำหรับปุ่ม "CONTINUE"
 @app.route('/continue_page/<slug>')
+@login_required
 def continue_page(slug):
     last_visited_pages = session.get('last_visited_pages', {})
     last_visited_info = last_visited_pages.get(slug)
@@ -4474,25 +5863,29 @@ def continue_page(slug):
 
 
 @app.route('/my-course')
+@login_required
 def my_course():
-    total_courses = 0  # Initialize total_courses with a default value
-    
-    try:
-        # Assuming you have a way to get user_id of the currently logged in user
-        user_id = current_user.id  # Replace with your logic to get user ID
+    total_courses = 0
+    user_image_url = "/static/img/avatars/user_dark.png"
+    admin_image_url = "/static/img/avatars/admin_dark.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
 
-        # Create cursor object to execute SQL commands
+    courses_data = []
+
+    try:
+        user_id = current_user.id  # Replace with your logic to get user ID
         cur = mysql.connection.cursor()
 
+        # Get total courses count
         cur.execute("""
             SELECT COUNT(*) 
             FROM courses c
             JOIN user_enroll ur ON c.id = ur.course_id
             WHERE ur.user_id = %s
-        """, (user_id,))  # Total courses count
+        """, (user_id,))
         total_courses = cur.fetchone()[0]
 
-        # Execute SQL command to retrieve enrolled courses details for the current user
+        # Retrieve enrolled courses details for the current user
         cur.execute("""
             SELECT 
                 c.id, 
@@ -4502,10 +5895,7 @@ def my_course():
                 c.featured_video,
                 cat.name AS category_name,
                 CONCAT(i.first_name, ' ', i.last_name) AS instructor_name, 
-                i.instructorimage,
-                c.language, 
-                c.deadline, 
-                c.certificate, 
+                i.instructorimage,                
                 c.slug,
                 qv.video_id,
                 qv.quiz_id  
@@ -4517,76 +5907,147 @@ def my_course():
             WHERE ur.user_id = %s
         """, (user_id,))
         
-        # Fetch all enrolled course results
         courses_rows = cur.fetchall()
 
-        # Execute SQL command to retrieve all categories (if needed for filtering)
+        for course in courses_rows:
+            course_id = course[0]
+
+            # Calculate total time duration for each course
+            cur.execute("""
+                SELECT SUM(qv.time_duration) AS total_time_duration
+                FROM quiz_video qv
+                WHERE qv.lesson_id IN (
+                    SELECT l.lesson_id
+                    FROM lesson l
+                    WHERE l.course_id = %s
+                )
+            """, [course_id])
+            total_time_duration_result = cur.fetchone()
+            total_time_duration = int(total_time_duration_result[0]) if total_time_duration_result and total_time_duration_result[0] is not None else 0
+
+            # Fetch lesson count for each course
+            cur.execute("""
+                SELECT COUNT(l.lesson_id) AS lesson_count
+                FROM lesson l
+                WHERE l.course_id = %s
+            """, [course_id])
+            lesson_count = cur.fetchone()[0]
+            
+            cur.execute("""
+                SELECT 
+                    COUNT(DISTINCT qv.quiz_id) AS total_quizzes
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NOT NULL
+            """, [course_id])
+            total_quizzes = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT 
+                    COUNT(DISTINCT qv.video_id) AS total_videos
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NULL
+            """, [course_id])
+            total_videos = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT COUNT(DISTINCT qa.quiz_id) AS quizzes_completed
+                FROM quiz_attempts qa
+                JOIN lesson l ON qa.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qa.user_id = %s AND qa.passed = 1
+            """, (course_id, current_user.id))
+            quizzes_completed = cur.fetchone()[0]
+
+            cur.execute("""
+                SELECT COUNT(DISTINCT va.video_id) AS videos_completed
+                FROM video_attempts va
+                JOIN lesson l ON va.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND va.user_id = %s AND va.passed = 1
+            """, (course_id, current_user.id))
+            videos_completed = cur.fetchone()[0]
+
+            total_tasks = total_quizzes + total_videos
+            tasks_completed = quizzes_completed + videos_completed
+            progress_percentage = int((tasks_completed / total_tasks) * 100) if total_tasks > 0 else 0
+            progress_percentage = min(progress_percentage, 100)
+
+            # Create the course dictionary
+            courses_data.append({
+                'id': course[0],
+                'title': course[1],
+                'description': course[2],
+                'featured_image': course[3],
+                'featured_video': course[4],
+                'category_name': course[5],
+                'instructor_name': course[6],
+                'instructor_image': course[7],                
+                'slug': course[8],
+                'video_id': course[9],
+                'quiz_id': course[10],
+                'total_time_duration': total_time_duration,
+                'lesson_count': lesson_count,
+                'progress_percentage': progress_percentage
+            })
+
+        # Retrieve all categories
         cur.execute("SELECT id, icon, name FROM categories")
-        
-        # Fetch all category results
         categories = cur.fetchall()
 
+        # Retrieve all published courses
         cur.execute("""
             SELECT c.id, c.title, c.slug, cat.name as category_name
             FROM courses c
             JOIN categories cat ON c.category_id = cat.id
+            WHERE c.status = 'PUBLISH'
         """)
         all_courses = cur.fetchall()
 
-        cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
-        user_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/user.png"
+        # Retrieve user image
+        cur.execute("SELECT userimage FROM user WHERE id = %s", (user_id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            user_image_url = result[0]
 
-        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
-        admin_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img/avatars/admin.png"
+        # Fetch admin image
+        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (user_id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
 
-        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
-        instructor_image_url = cur.fetchone()[0] if cur.rowcount > 0 else "/static/img//avatars/instructor.png"
+        # Fetch instructor image
+        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (user_id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        courses_rows = None
+        courses_data = []
         categories = []
         all_courses = []
 
     finally:
-        # Make sure to close cursor if it's been opened
-        if 'cur' in locals() or 'cur' in globals():
+        if 'cur' in locals():
             cur.close()
-
-    # Create Course objects for each row
-    course = [
-        Course(
-            id=row[0],
-            title=row[1],
-            description=row[2],
-            featured_image=row[3],
-            featured_video=row[4],
-            category_name=row[5],
-            instructor_name=row[6],
-            instructor_image=row[7],
-            language=row[8],
-            deadline=row[9],
-            certificate=row[10],
-            slug=row[11],
-            video_id=row[12],
-            quiz_id=row[13]
-        ) for row in courses_rows
-    ]
 
     # Convert categories to a list of dictionaries for easier template rendering
     categories = [
-        {
-            'id': row[0], 
-            'icon': row[1],  # Make sure to include 'icon' field from database
-            'name': row[2]
-        } for row in categories
+        {'id': row[0], 'icon': row[1], 'name': row[2]} for row in categories
     ]
 
-    courses = [{'id': row[0], 'title': row[1], 'slug': row[2], 'category_name': row[3]} for row in all_courses]
+    all_courses_data = [{'id': row[0], 'title': row[1], 'slug': row[2], 'category_name': row[3]} for row in all_courses]
 
-    # Render the template with the retrieved courses and categories
-    return render_template('course/my-course.html', total_courses=total_courses, courses=courses, categories=categories, course=course, user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url)
-
+    return render_template(
+        'course/my-course.html', 
+        total_courses=total_courses, 
+        courses=courses_data, 
+        categories=categories, 
+        all_courses=all_courses_data, 
+        user_image_url=user_image_url, 
+        admin_image_url=admin_image_url, 
+        instructor_image_url=instructor_image_url
+    )
 
 
 
@@ -4594,60 +6055,292 @@ def my_course():
 
 
 @app.route('/search')
-def search_course():
-    try:
-        # Create cursor object to execute SQL commands
-        cur = mysql.connection.cursor()
-        
-        query = request.args.get('query')
-        cur.execute("SELECT * FROM courses WHERE title LIKE %s", ('%' + query + '%',))
+@login_required
+def search():
+    user_image_url = "/static/img/avatars/user_dark.png"
+    admin_image_url = "/static/img/avatars/admin_dark.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
+    
+    query = request.args.get('query')
+    if not query:
+        return render_template('search/search.html', courses=[], categories=[], user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url, progress_percentage=0)
 
-        # Fetch all course results
+    try:
+        cur = mysql.connection.cursor()
+
+        # Search courses
+        cur.execute("""
+            SELECT 
+                c.id, c.title, c.description, c.featured_image,
+                c.featured_video, cat.name as category_name,
+                CONCAT(i.first_name, ' ', i.last_name) AS instructor_name, 
+                i.instructorimage, c.slug
+            FROM courses c
+            JOIN categories cat ON c.category_id = cat.id
+            JOIN instructor i ON c.instructor_id = i.id
+            WHERE c.title LIKE %s AND c.status != 'DRAFT'
+        """, ('%' + query + '%',))
         courses = cur.fetchall()
 
-        # Execute SQL command to retrieve category details
+        # Fetch categories
         cur.execute("SELECT id, icon, name FROM categories")
-        
-        # Fetch all category results
-        categories = cur.fetchall()
+        categories_rows = cur.fetchall()
 
-    except Exception as e:
+        # Fetch user image
+        cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            user_image_url = result[0]
+
+        # Fetch admin image
+        cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            admin_image_url = result[0]
+
+        # Fetch instructor image
+        cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
+        result = cur.fetchone()
+        if result and result[0]:
+            instructor_image_url = result[0]
+
+    except MySQLdb.Error as e:
         print(f"An error occurred: {e}")
         courses = []
-        categories = []
+        categories_rows = []
 
     finally:
-        # Close cursor
         cur.close()
+        
+    progress_percentage = 0
 
-    # Convert courses to a list of dictionaries for easier template rendering
     courses_list = []
     for row in courses:
+        course_id = row[0]
+        progress_percentage = 0  # Initialize with a default value
+
+        try:
+            cur = mysql.connection.cursor()
+
+            # Total quizzes
+            cur.execute("""
+                SELECT COUNT(DISTINCT qv.quiz_id) AS total_quizzes
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NOT NULL
+            """, [course_id])
+            total_quizzes = cur.fetchone()[0]
+
+            # Total videos
+            cur.execute("""
+                SELECT COUNT(DISTINCT qv.video_id) AS total_videos
+                FROM quiz_video qv
+                JOIN lesson l ON qv.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qv.quiz_id IS NULL
+            """, [course_id])
+            total_videos = cur.fetchone()[0]
+
+            # Quizzes completed by the user
+            cur.execute("""
+                SELECT COUNT(DISTINCT qa.quiz_id) AS quizzes_completed
+                FROM quiz_attempts qa
+                JOIN lesson l ON qa.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND qa.user_id = %s AND qa.passed = 1
+            """, (course_id, current_user.id))
+            quizzes_completed = cur.fetchone()[0]
+
+            # Videos completed by the user
+            cur.execute("""
+                SELECT COUNT(DISTINCT va.video_id) AS videos_completed
+                FROM video_attempts va
+                JOIN lesson l ON va.lesson_id = l.lesson_id
+                WHERE l.course_id = %s AND va.user_id = %s AND va.passed = 1
+            """, (course_id, current_user.id))
+            videos_completed = cur.fetchone()[0]
+
+            total_tasks = total_quizzes + total_videos
+            tasks_completed = quizzes_completed + videos_completed
+            if total_tasks > 0:
+                progress_percentage = int((tasks_completed / total_tasks) * 100)
+            progress_percentage = min(progress_percentage, 100)
+
+            # Total time duration
+            cur.execute("""
+                SELECT SUM(qv.time_duration) AS total_time_duration
+                FROM quiz_video qv
+                WHERE qv.lesson_id IN (
+                    SELECT l.lesson_id
+                    FROM lesson l
+                    WHERE l.course_id = %s
+                )
+            """, [course_id])
+            total_time_duration_result = cur.fetchone()
+            total_time_duration = int(total_time_duration_result[0]) if total_time_duration_result and total_time_duration_result[0] is not None else 0
+
+            # Lesson count
+            cur.execute("""
+                SELECT COUNT(l.lesson_id) AS lesson_count
+                FROM lesson l
+                WHERE l.course_id = %s
+            """, [course_id])
+            lesson_count = cur.fetchone()[0]
+
+        except MySQLdb.Error as e:
+            print(f"An error occurred: {e}")
+        finally:
+            cur.close()
+
         course_dict = {
-            'id': row[0], 
-            'title': row[1], 
-            'category': {'name': row[2]},  # Adjust based on your schema
-            # Add more fields as needed
+            'id': course_id,
+            'title': row[1],
+            'description': row[2],
+            'featured_image': row[3],
+            'featured_video': row[4],
+            'category_name': row[5],
+            'instructor_name': row[6],
+            'instructor_image': row[7],           
+            'slug': row[8],
+            'total_time_duration': total_time_duration,
+            'lesson_count': lesson_count,
+            'progress_percentage': progress_percentage
         }
         courses_list.append(course_dict)
 
-    # Convert categories to a list of dictionaries for easier template rendering
-    categories_list = [
-        {
-            'id': row[0], 
-            'icon': row[1], 
-            'name': row[2]
-        } for row in categories
-    ]
 
-    # Render the template with the context
-    return render_template('search/search.html', courses=courses_list, categories=categories_list)
+    categories = [{'id': row[0], 'icon': row[1], 'name': row[2]} for row in categories_rows]
+
+    return render_template('search/search.html', courses=courses_list, categories=categories, user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url, progress_percentage=progress_percentage)
+
+
+
+class RequestResetForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    submit = SubmitField('Send Confirmation Link')
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=8)])
+    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Reset Password')
+
+# Helper functions
+def generate_reset_token(email):
+    serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+    return serializer.dumps(email, salt=app.config['SECURITY_PASSWORD_SALT'])
+
+def verify_reset_token(token, expiration=900):
+    serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+    try:
+        email = serializer.loads(
+            token,
+            salt=app.config['SECURITY_PASSWORD_SALT'],
+            max_age=expiration
+        )
+    except:
+        return None
+    return email
+
+def send_reset_email(email):
+    token = generate_reset_token(email)
+    reset_url = url_for('reset_token', token=token, _external=True)
+    msg = Message('คำขอรีเซ็ตรหัสผ่าน', sender='poplearning11@gmail.com', recipients=[email])
+    msg.body = f'''หากต้องการรีเซ็ตรหัสผ่านของคุณ โปรดไปที่ลิงก์ต่อไปนี้:
+        
+    {reset_url}
+
+    หากคุณไม่ได้ทำการร้องขอนี้ โปรดละเว้นอีเมลฉบับนี้ และจะไม่มีการเปลี่ยนแปลงใดๆ เกิดขึ้น.
+    '''
+    mail.send(msg)
+
+
+# Routes
+@app.route('/reset_password', methods=['GET', 'POST'])
+def reset_request():
+    form = RequestResetForm()
+    if form.validate_on_submit():
+        email = form.email.data  # ใช้ form.email.data โดยตรง
+        cur = mysql.connection.cursor()
+        cur.execute('SELECT email FROM user WHERE email = %s', (email,))
+        user = cur.fetchone()
+        cur.execute('SELECT email FROM instructor WHERE email = %s', (email,))
+        instructor = cur.fetchone()
+        cur.execute('SELECT email FROM admin WHERE email = %s', (email,))
+        admin = cur.fetchone()
+        cur.close()
+        if user or instructor or admin:
+            send_reset_email(email)
+            flash('ส่งคำขอรีเซ็ตแล้ว ตรวจสอบอีเมลของคุณ', 'success')
+        else:
+            flash('ไม่พบบัญชีที่มีอีเมลนั้น', 'error')  # แจ้งว่าหาอีเมลไม่เจอ
+        return redirect(url_for('login'))
+    return render_template('registration/reset_request.html', title='Reset Password', form=form)
+
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_token(token):
+    email = verify_reset_token(token)
+    if email is None:
+        flash('นั่นคือโทเค็นที่ไม่ถูกต้องหรือหมดอายุ', 'warning')
+        return redirect(url_for('reset_request'))
+    
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        cur = mysql.connection.cursor()
+        cur.execute('UPDATE user SET password = %s WHERE email = %s', (form.password.data, email))
+        cur.execute('UPDATE instructor SET password = %s WHERE email = %s', (form.password.data, email))
+        cur.execute('UPDATE admin SET password = %s WHERE email = %s', (form.password.data, email))
+        mysql.connection.commit()
+        cur.close()
+        flash('รหัสผ่านของคุณได้รับการอัพเดทแล้ว! ตอนนี้คุณสามารถเข้าสู่ระบบได้แล้ว', 'success')
+        return redirect(url_for('login'))
+    return render_template('registration/reset_token.html', title='Reset Password', form=form)
+
 
 
 
 @app.errorhandler(404)
 def not_found_error(error):
-    return render_template('error/404.html'), 404
+    user_image_url = "/static/img/avatars/user_dark.png"
+    admin_image_url = "/static/img/avatars/admin_dark.png"
+    instructor_image_url = "/static/img/avatars/instructor_dark.png"
+    cur = mysql.connection.cursor()
+    
+    cur.execute("SELECT id, icon, name FROM categories")
+    
+    # Fetch all category results
+    categories_rows = cur.fetchall()
+    
+    cur.execute("SELECT userimage FROM user WHERE id = %s", (current_user.id,))
+    result = cur.fetchone()
+    if result and result[0]:
+            user_image_url = result[0]
+
+            # Fetch admin image
+    cur.execute("SELECT adminimage FROM admin WHERE id = %s", (current_user.id,))
+    result = cur.fetchone()
+    if result and result[0]:
+            admin_image_url = result[0]
+
+            # Fetch instructor image
+    cur.execute("SELECT instructorimage FROM instructor WHERE id = %s", (current_user.id,))
+    result = cur.fetchone()
+    if result and result[0]:
+            instructor_image_url = result[0]
+    
+    cur.execute("""
+                SELECT c.id, c.title, c.slug, cat.name AS category_name
+                FROM courses c
+                JOIN categories cat ON c.category_id = cat.id
+                WHERE c.status = 'PUBLISH'
+            """)
+    all_courses = cur.fetchall()
+    
+    # Create a list of categories dictionaries
+    categories = [{'id': row[0], 'icon': row[1], 'name': row[2]} for row in categories_rows]
+    courses = [{'id': row[0], 'title': row[1], 'slug': row[2], 'category_name': row[3]} for row in all_courses]
+    
+    # Render the 404 template with categories data
+    return render_template('error/404.html', categories=categories, courses=courses, user_image_url=user_image_url, admin_image_url=admin_image_url, instructor_image_url=instructor_image_url), 404
+
 
 
 

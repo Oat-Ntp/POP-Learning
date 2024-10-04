@@ -4,10 +4,13 @@
 
 <!-- PAGE TITLE
     ================================================== -->
-<header class="py-8 py-md-6" style="background-image: none;">
+<header class="py-8 py-md-0" style="background-image: none;">
     <div class="container text-center py-xl-2">
-        <h1 class="display-4 fw-semi-bold mb-0">Register</h1>
-        <nav aria-label="breadcrumb">
+        <div class="text-center mt-4">
+            <img class="img-fluid" src="/static/img/logo/logo POP2.png" alt="Login Image" style="width: 125px; height: auto;">
+        </div>
+        <h1 class="display- fw-semi-bold mb-0">Register</h1>
+        <!-- <nav aria-label="breadcrumb">
             <ol class="breadcrumb breadcrumb-scroll justify-content-center">
                 <li class="breadcrumb-item">
                     <a class="text-gray-800" href="#">
@@ -18,7 +21,7 @@
                     Register
                 </li>
             </ol>
-        </nav>
+        </nav> -->
     </div>
     <!-- Img -->
     <img class="d-none img-fluid" src="...html" alt="...">
@@ -43,7 +46,7 @@
                         Swal.fire({
                             title: "{{message}}",
                             icon: "{{category}}",
-                            footer: '<a href="/">Already have an account?</a>'
+                            footer: '<a href="/">กดนี่ที่เพื่อล็อคอิน</a>'
                         });
                     </script>
                     {% endfor %}
@@ -77,6 +80,7 @@
                                 <label for="username">Username</label>
                                 <input type="text" class="form-control" id="username" name="username"
                                     placeholder="Enter username">
+                                <span style="margin-right: 10px; color:red; font-size:small">*ชื่อผู้ใช้ต้องประกอบด้วยตัวอักษรและตัวเลข</span>
                             </div>
                         </div>
                         <div class="col-6">
@@ -88,10 +92,6 @@
                             </div>
                         </div>
 
-                        <div class="form-group mb-4">
-                            <label for="date">Birth Day</label>
-                            <input type="date" class="form-control" id="birth" name="birth" placeholder="Birth Day">
-                        </div>
 
                         <!-- Password -->
                         <div class="col">
@@ -99,6 +99,7 @@
                                 <label for="password">Password</label>
                                 <input type="password" class="form-control" id="password" name="password"
                                     placeholder="**********">
+                                <span style="margin-right: 10px; color:red; font-size:small">*รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร, มีพิมพ์ใหญ่, พิมพ์เล็ก และตัวเลข</span>
                             </div>
                         </div>
                         <div class="col">

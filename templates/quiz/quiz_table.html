@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Quiz Management{% endblock %}
+{% block title %}การจัดการแบบทดสอบ{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -10,7 +10,7 @@
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1>Quiz Management</h1>
+                    <h1>การจัดการแบบทดสอบ</h1>
                 </div>
             </div>
         </div>
@@ -22,9 +22,9 @@
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <h1 class="card-title">หัวข้อคำถาม
+                            <h1 class="card-title">เพิ่มแบบทดสอบ
                                 <a class="btn btn-success btn-sm" href="/insert_quiz">
-                                    <i class="fa fa-plus"></i> Add
+                                    <i class="fa fa-plus"></i>
                                 </a>
                             </h1>
                             {% with messages = get_flashed_messages(with_categories=true) %}
@@ -51,13 +51,13 @@
                                     <tr class="table-info">
                                         <th style="width: 2%">No.</th>
                                         <th style="width: 10%">ชื่อแบบทดสอบ</th>
-                                        <th style="width: 10%">ชื่อบทเรียน</th>
-                                        <th style="width: 10%">จำนวนข้อสอบ</th>
-                                        <th style="width: 10%">เกณฑ์ผ่าน</th>
-                                        <th style="width: 10%">วันที่สร้าง</th>
-                                        <th style="width: 3%">ข้อสอบ</th>
-                                        <th style="width: 3%">แก้ไข</th>
-                                        <th style="width: 3%">ลบ</th>
+                                        <th style="width: 15%">ชื่อบทเรียน</th>
+                                        <th style="width: 5%">จำนวนข้อสอบ</th>
+                                        <th style="width: 5%">เกณฑ์ผ่าน</th>
+                                        <th style="width: 5%">วันที่สร้าง</th>
+                                        <th style="width: 3%; text-align: center;">ข้อสอบ</th>
+                                        <th style="width: 3%; text-align: center;">แก้ไข</th>
+                                        <th style="width: 3%; text-align: center;">ลบ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -73,16 +73,16 @@
                                             {% endfor %}
                                         </td>
                                         <td align="center">{{ quiz[5] }}</td> <!-- Display question count here -->
-                                        <td>{{ quiz[3] }} %</td>  
+                                        <td align="center">{{ quiz[3] }} %</td>  
                                         <td>{{ quiz[4] }}</td>     
                                         <td align="center"><a class="btn btn-info btn-sm" href="/add_question/{{quiz[0]}}">
-                                            <i class="fas fa-plus"></i> Add
+                                            <i class="fas fa-plus"></i>
                                         </a></td>                                 
                                         <td align="center"><a class="btn btn-warning btn-sm" href="/edit_quiz/{{quiz[0]}}">
-                                                <i class="fas fa-pencil-alt"></i> Edit
+                                                <i class="fas fa-pencil-alt"></i>
                                             </a></td>
                                         <td align="center"><a class="btn btn-danger btn-sm" href="/delete_quiz/{{quiz[0]}}">
-                                                <i class="fas fa-trash"></i> Delete
+                                                <i class="fas fa-trash"></i>
                                             </a></td>
                                     </tr>
                                     {% endfor %}
@@ -124,23 +124,50 @@
 <!-- Page specific script -->
 <script>
     $(function () {
-        $("#example1").DataTable({
-            "responsive": true,
-            "lengthChange": true,
-            "autoWidth": false,
-            "buttons": ["copy", "csv", "excel", "pdf", "print", "colvis"]
-        }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
-        $('#example2').DataTable({
-            "paging": true,
-            "lengthChange": false,
-            "searching": false,
-            "ordering": true,
-            "info": true,
-            "autoWidth": false,
-            "responsive": true,
-        });
+      $("#example1").DataTable({
+        "responsive": true,
+        "lengthChange": true,
+        "autoWidth": false,
+        "buttons": [
+          {
+            extend: "copy",
+            exportOptions: {
+              columns: ':visible' // ให้คัดลอกเฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          {
+            extend: "csv",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "excel",
+            exportOptions: {
+              columns: ':visible'
+            }
+          },
+          {
+            extend: "print",
+            exportOptions: {
+              columns: ':visible' // ให้พิมพ์เฉพาะคอลัมน์ที่มองเห็นได้
+            }
+          },
+          "colvis" // ปุ่ม colvis สำหรับการแสดง/ซ่อนคอลัมน์
+        ]
+      }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
+  
+      $('#example2').DataTable({
+        "paging": true,
+        "lengthChange": false,
+        "searching": false,
+        "ordering": true,
+        "info": true,
+        "autoWidth": false,
+        "responsive": true,
+      });
     });
-</script>
+  </script>
 </body>
 
 {% include 'components/footer_dashboard.html' %}

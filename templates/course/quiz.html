@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Watch - {{ video.title }}{% endblock %}
+{% block title %}Quiz - {{ video.title }}{% endblock %}
 {% block content %}
 
 <!-- NAVBAR -->
@@ -27,7 +27,7 @@
 </header>
 
 <!-- PARALLAX -->
-<div class="position-absolute right-0 left-0 top-0 bottom-0" style="margin-top: 5%;">
+<div class="position-absolute right-0 left-0 top-0 bottom-0 d-none d-md-block" style="margin-top: 5%;">
     <div class="cs-parallax">
         <div class="cs-parallax-layer" data-depth="0.1">
             <img class="img-fluid" src="/static/img/parallax/layer-01.svg" alt="Layer">
@@ -69,54 +69,76 @@
                     <b>Quiz Title: {{ questions[0].quiz_name }}</b>
                     <br>
                 </div>
-
+            
                 <form id="quizform" action="{{ url_for('submit_quiz') }}" method="POST" style="font-size: 1rem;">
                     <input type="hidden" name="user_id" value="{{ current_user.id }}">
                     <input type="hidden" name="quiz_id" value="{{ quiz_id }}">
                     <input type="hidden" name="lesson_id" value="{{ lesson_id }}">
-                
+            
                     {% for question in questions %}
                     <div style="font-size: 20px; margin-top: 1rem;">
                         <b>{{ loop.index }}. {{ question.question_name }}</b>
+                        {% if question.question_image %}
+                        <div style="display: flex; margin-top: 10px; width: auto; height: auto;">
+                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question.question_image) }}" 
+                                 alt="Question Image" 
+                                 style="max-width: 80%; height: auto;">
+                        </div>
+                        {% endif %}
                     </div>
-                
+                    
+                    
+            
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_a_{{ question.question_id }}" value="choice_a" required>
+                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_a_{{ question.question_id }}" value="a" required>
                         <label class="form-check-label" for="choice_a_{{ question.question_id }}">
                             A. {{ question.choice_a }}
+                            {% if question.choice_a_image %}
+                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question.choice_a_image) }}" alt="Choice A Image" style="width: 100px; height: auto; margin-top: 10px;">
+                            {% endif %}                          
                         </label>
                     </div>
-                
+            
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_b_{{ question.question_id }}" value="choice_b">
+                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_b_{{ question.question_id }}" value="b">
                         <label class="form-check-label" for="choice_b_{{ question.question_id }}">
                             B. {{ question.choice_b }}
+                            {% if question.choice_b_image %}
+                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question.choice_b_image) }}" alt="Choice B Image" style="width: 100px; height: auto;">
+                            {% endif %}
                         </label>
                     </div>
-                
+            
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_c_{{ question.question_id }}" value="choice_c">
+                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_c_{{ question.question_id }}" value="c">
                         <label class="form-check-label" for="choice_c_{{ question.question_id }}">
                             C. {{ question.choice_c }}
+                            {% if question.choice_c_image %}
+                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question.choice_c_image) }}" alt="Choice C Image" style="width: 100px; height: auto;">
+                            {% endif %}                          
                         </label>
                     </div>
-                
+            
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_d_{{ question.question_id }}" value="choice_d">
+                        <input class="form-check-input" type="radio" name="question_{{ question.question_id }}" id="choice_d_{{ question.question_id }}" value="d">
                         <label class="form-check-label" for="choice_d_{{ question.question_id }}">
                             D. {{ question.choice_d }}
+                            {% if question.choice_d_image %}
+                            <img src="{{ url_for('static', filename='img/uploads/question/' ~ question.choice_d_image) }}" alt="Choice D Image" style="width: 100px; height: auto;">
+                            {% endif %}                           
                         </label>
                     </div>
                     {% endfor %}
-                
+            
                     <div class="d-flex justify-content-center" style="margin-top: 2rem;">
-                        <button type="submit" class="btn btn-primary">Submit Quiz</button>
+                        <button type="submit" class="btn btn-primary">ส่งข้อสอบ</button>
                     </div>
                 </form>
                 {% else %}
                 <p>No questions found for this quiz.</p>
                 {% endif %}
             </section>
+            
         </div>
         {% include 'components/sidebar-quiz_video.html' %}
     </div>
@@ -142,10 +164,10 @@
             success: function(response) {
                 if ( !response.success){
                     Swal.fire({
-                        title: 'Something Wrong!',
-                        text: `Please contact system admin.`,
+                        title: 'มีบางอย่างผิดปกติ!',
+                        text: `กรุณาติดต่อผู้ดูแลระบบ.`,
                         icon: 'error',
-                        confirmButtonText: 'Close',
+                        confirmButtonText: 'ปิด',
                     })
                 }
 
@@ -162,23 +184,18 @@
                                     <a id="downloadCertificateLink" href="${response.certificate_url}" download="certificate.png" class="btn btn-success mx-2 btn-sm">
                                         Download Certificate
                                     </a>
-                                    <button id="closeModalBtn" class="btn btn-secondary mx-2 btn-sm">
+                                    <a href="{{ url_for('course_details', slug=video.slug) }}" class="btn btn-secondary mx-2 btn-sm">
                                         Close
-                                    </button>
+                                    </a>
                                 </div>
                             `,
                         showConfirmButton: false,
-                        width: '700px',
-                        didRender: (modal) => {
-                            document.getElementById('closeModalBtn').addEventListener('click', function() {
-                                Swal.close();
-                            });
-                        }
-                    });
+                        width: '700px'
+                    });                                  
                 }else{
                     Swal.fire({
-                        title: 'Missing some testing result!!',
-                        text: 'You did not pass all the test. Please try again.',
+                        title: 'ผลการตรวจผิดผลาด!',
+                        text: 'คุณไม่ผ่านการทดสอบทั้งหมด โปรดลองอีกครั้ง',
                         icon: 'error',
                         confirmButtonText: 'OK'
                     });
@@ -187,10 +204,10 @@
             error: function(xhr, status, error) {
                 console.error('Error:', error);
                 Swal.fire({
-                    title: 'Something Wrong!',
+                    title: 'มีบางอย่างผิดปกติ!',
                     text: `'Error:': ${error}'}`,
                     icon: 'error',
-                    confirmButtonText: 'Close',
+                    confirmButtonText: 'ปิด',
                 })
             }
         });
@@ -217,7 +234,7 @@
                     title: 'ผลการทำข้อสอบ!',
                     text: `คุณได้คะแนน: ${data.score} คะแนน\n${data.passed ? '(ผ่าน)' : '(ไม่ผ่าน)'}`,
                     icon: 'success',
-                    confirmButtonText: 'Next',
+                    confirmButtonText: 'ต่อไป',
                 }).then((result) => {
                     
                     if (result.isConfirmed) {
@@ -242,8 +259,11 @@
                     title: 'ผลการทำข้อสอบ!',
                     text: `คุณได้คะแนน: ${data.score} คะแนน\n${data.passed ? '(ผ่าน)' : '(ไม่ผ่าน)'}`,
                     icon: 'error',
-                    confirmButtonText: 'Close',
-                })
+                    confirmButtonText: 'ปิด',
+                }).then(() => {
+                    // Reset form and allow retry
+                    location.reload(); // Resets the form for a new attempt
+                });
             }
         })
         .catch(error => {

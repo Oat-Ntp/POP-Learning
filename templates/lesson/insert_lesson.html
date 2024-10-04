@@ -1,5 +1,5 @@
 {% extends 'base_dashboard.html' %}
-{% block title %}Insert Lesson{% endblock %}
+{% block title %}เพิ่มบทเรียน{% endblock %}
 {% block content %}
 {% include 'components/sidebar_dashboard.html' %}
 {% include 'components/control-sidebar_dashboard.html' %}
@@ -31,7 +31,7 @@
                                 icon: "{{ category }}",
                             }).then((result) => {
                                 if (result.isConfirmed) {
-                                    window.location.href = "{{ url_for('lesson_table') }}";
+                                    window.location.href = "{{ url_for('insert_lesson') }}";
                                 }
                             });
                         });
@@ -41,20 +41,33 @@
                 {% endif %}
                 {% endwith %}
                 <form method="post" action="{{ url_for('insert_lesson') }}" id="lessonForm">
+                    
                     <div class="form-group row">
                         <label for="lesson_name" class="col-sm-2 col-form-label">ชื่อบทเรียน:</label>
                         <div class="col-4">
                             <input type="text" class="form-control" id="lesson_name" name="lesson_name"
-                                placeholder="ชื่อบทเรียน" required>
+                                placeholder="ชื่อบทเรียน" >
                         </div>
                     </div>
                     <div class="form-group row">
-                        <label for="course_id" class="col-sm-2 col-form-label">Course :</label>
+                        <label for="course_id" class="col-sm-2 col-form-label">หลักสูตร :</label>
                         <div class="col-sm-3">
                             <select id="course_id" class="form-control custom-select" name="course_id">
-                                <option selected="" disabled="">Select course</option>
+                                <option selected="" disabled="">เลือกหลักสูตร</option>
                                 {% for course in course %}
-                                <option value="{{ course[0] }}">{{ course[1] }} {{ course[2] }}
+                                <option value="{{ course[0] }}">{{ course[1] }}
+                                </option>
+                                {% endfor %}    
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="instructor_id" class="col-sm-2 col-form-label">ผู้สอน</label>
+                        <div class="col-sm-3">
+                            <select id="instructor_id" class="form-control custom-select" name="instructor_id">
+                                <option selected="" disabled="">เลือกผู้สอน</option>
+                                {% for instructor in instructor %}
+                                <option value="{{ instructor[0] }}">{{ instructor[1] }} {{ instructor[2] }}
                                 </option>
                                 {% endfor %}    
                             </select>
@@ -62,7 +75,7 @@
                     </div>
                     <div class="form-group row">
                         <div class="col-sm-10 offset-sm-2">
-                            <button type="submit" class="btn btn-primary" id="submitButton">Submit</button>
+                            <button type="submit" class="btn btn-success" id="submitButton">เพิ่มบทเรียน</button>
                         </div>
                     </div>
 
@@ -71,5 +84,34 @@
         </div>
     </section>
 </div>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#lessonForm').on('submit', function (e) {
+            e.preventDefault(); // ป้องกันการรีเฟรชหน้าจอ
+            
+            // ตรวจสอบข้อมูลฟอร์ม
+            var lessonName = $('#lesson_name').val();
+            var courseId = $('#course_id').val();
+            var instructorId = $('#instructor_id').val();
+            
+            // ตัวอย่างการตรวจสอบข้อมูล
+            if (!lessonName || !courseId || !instructorId) {
+                Swal.fire({
+                    title: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน',
+                    icon: 'warning'
+                });
+                return; // หยุดการทำงานต่อจากนี้
+            }
+
+            // ส่งฟอร์ม (อาจใช้ JavaScript เพื่อจัดการการรีเฟรชหน้า)
+            // ต่อไปนี้เป็นตัวอย่างการใช้ JavaScript เพื่อสร้างการส่งฟอร์ม:
+            this.submit(); // ส่งฟอร์มเมื่อข้อมูลครบถ้วน
+        });
+    });
+</script>
+
+
 {% include 'components/footer_dashboard.html' %}
 {% endblock %}

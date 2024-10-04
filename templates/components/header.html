@@ -4,7 +4,7 @@
     <div class="container-fluid">
 
         <!-- Brand -->
-        <a class="navbar-brand me-0" href="home">
+        <a class="navbar-brand me-0" href="/home">
             <img src="{{ url_for('static', filename='img/logo/logo POP2.png') }}" style="width:125px;height:100px;" alt="...">
             <!--                     class="navbar-brand-img" alt="...">-->
         </a>
@@ -59,7 +59,7 @@
 
 
         <!-- Search -->
-        <form class="d-none d-wd-flex ms-5 w-xl-450p" method="get" action="search_course">
+        <form class="d-none d-wd-flex ms-5 w-xl-450p" method="get" action="search">
             <div class="input-group border rounded">
                 <div class="input-group-prepend">
                     <button class="btn btn-sm my-2 my-sm-0 text-secondary icon-xs d-flex align-items-center"
@@ -116,25 +116,25 @@
             <!-- Navigation -->
             <ul class="navbar-nav ms-auto me-n2 me-md-n4">
                 <li class="nav-item dropdown dropdown-full-width ">
-                    <a class="nav-link px-xl-4 text-gigas" href="home">
+                    <a class="nav-link px-xl-4 text-gigas" href="/home">
                         <span>Home</span>
                     </a>
 
                 </li>
                 <li class="nav-item dropdown dropdown-full-width">
-                    <a class="nav-link text-gigas" href="about">
-                        About
+                    <a class="nav-link text-gigas" href="/about">
+                        About Us
                     </a>
 
                 </li>
                 <li class="nav-item dropdown dropdown-full-width">
-                    <a class="nav-link text-gigas" href="contact">
+                    <a class="nav-link text-gigas" href="/contact">
                         Contact Us
                     </a>
 
                 </li>
                 <li class="nav-item dropdown dropdown-full-width">
-                    <a class="nav-link text-gigas" href="courses">
+                    <a class="nav-link text-gigas" href="/courses">
                         Courses
                     </a>
 
@@ -169,30 +169,37 @@
                     <ul class="dropdown-menu border-xl shadow-none" aria-labelledby="user">
                         {% if current_user.role == 'admin' %}
                         <li class="dropdown-item">
-                            <a class="dropdown-link active" href="admin_dashboard">
+                            <a class="dropdown-link active" href="/admin_dashboard">
                                 Dashboard
                             </a>
                         </li>
                         {% endif %}
                         {% if current_user.role == 'instructor' %}
                         <li class="dropdown-item">
-                            <a class="dropdown-link active" href="instructor_dashboard">
+                            <a class="dropdown-link active" href="/instructor_dashboard">
+                                Dashboard
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if current_user.role == 'user' %}
+                        <li class="dropdown-item">
+                            <a class="dropdown-link active" href="/user_dashboard">
                                 Dashboard
                             </a>
                         </li>
                         {% endif %}
                         <li class="dropdown-item">
-                            <a class="dropdown-link active" href="profile_update">
+                            <a class="dropdown-link active" href="/profile_update">
                                 Account
                             </a>
                         </li>
                         <li class="dropdown-item">
-                            <a class="dropdown-link" href="my-course">
+                            <a class="dropdown-link" href="/my-course">
                                 Enrolled Courses
                             </a>
                         </li>
                         <li class="dropdown-item">
-                            <a href="logout" class="dropdown-link">
+                            <a href="/logout" class="dropdown-link">
                                 Logout
                             </a>
                         </li>

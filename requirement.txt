@@ -5,8 +5,13 @@ flask==3.0.3
 flask_session==0.8.0
 flask_login==0.6.3
 flask_mysqldb==2.0.0
+flask-Mail==0.10.0
+flask-WTF==1.2.1
 itsdangerous==2.2.0
 jinja2==3.1.4
 markupsafe==2.1.5
 werkzeug==3.0.3
 pillow==10.4.0
+itsdangerous==2.2.0
+WTForms==3.1.2
+email_validator==2.2.0

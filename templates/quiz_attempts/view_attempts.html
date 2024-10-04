@@ -18,10 +18,11 @@
     </section>
     <section class="content">
         <div class="card">
-            <div class="card-body" style="margin-top: 2%;">
+            <div class="card-body">
+                <h3>Pre-test</h3>
                 <div class="row">
                     <div class="col-md-4">
-                        {% for data in data %}
+                        {% for data in pre_test_data %}
                         <h5><b>วิชาที่เข้าสอบ : {{ data[0] }}</b></h5>
                         <br>ชื่อแบบทดสอบ : {{ data[1] }}
                         <br>ชื่อบทเรียน : {{ data[2] }}
@@ -71,12 +72,12 @@
                                     colorByPoint: true,
                                     data: [{
                                         name: 'ตอบถูก',
-                                        y: {{ attempts_data[0].correct_answers / attempts_data[0].question_count * 100 }},
+                                        y: {{ pre_attempts_data[0].correct_answers / pre_attempts_data[0].question_count * 100 }},
                                         sliced: true,
                                         selected: true
                                     }, {
                                         name: 'ตอบผิด',
-                                        y: {{ attempts_data[0].incorrect_answers / attempts_data[0].question_count * 100 }}
+                                        y: {{ pre_attempts_data[0].incorrect_answers / pre_attempts_data[0].question_count * 100 }}
                                     }]
                                 }]
                             });
@@ -84,10 +85,10 @@
                     </div>
 
                     <div class="col-md-4">
-                        <h5 class="card-title">รายงานผลสอบ</h5>
+                        <h5 class="card-title">รายงานผลสอบ Pre-test</h5>
                         <table class="table table-bordered table-striped">
                             <tbody>
-                                {% for attempt in attempts_data %}
+                                {% for attempt in pre_attempts_data %}
                                 <tr>
                                     <th>ข้อสอบทั้งหมด</th>
                                     <td>{{ attempt.question_count }} ข้อ</td>
@@ -120,6 +121,113 @@
             </div>
         </div>
     </section>
+    {% if post_test_data %}
+    <section class="content">
+        <div class="card">
+            <div class="card-body">
+                <h3>Post-test</h3>
+                <div class="row">
+                    <div class="col-md-4">
+                        {% for data in post_test_data %}
+                        <h5><b>วิชาที่เข้าสอบ : {{ data[0] }}</b></h5>
+                        <br>ชื่อแบบทดสอบ : {{ data[1] }}
+                        <br>ชื่อบทเรียน : {{ data[2] }}
+                        <br>ผู้สอน: {{ data[3] }} 
+                        <br>จำนวนข้อสอบ: {{ data[4] }} ข้อ
+                        <br>เกณฑ์ผ่าน: {{ data[5] }}%                       
+                        <hr>
+                        <br>ผู้สอบ: {{ data[6] }}
+                        <br>วันที่เข้าสอบ: {{ data[7] }} น.
+                        {% endfor %}
+                    </div>
+
+
+                    <script src="https://code.highcharts.com/highcharts.js"></script>
+                    <script src="https://code.highcharts.com/modules/data.js"></script>
+                    <script src="https://code.highcharts.com/modules/drilldown.js"></script>
+                    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+                    <script src="https://code.highcharts.com/modules/export-data.js"></script>
+                    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+                    <div class="col-md-4">
+                        <div id="container1" style="width:100%; height: 300px;"></div>
+                        <script>
+                            Highcharts.chart('container1', {
+                                chart: {
+                                    type: 'pie'
+                                },
+                                title: {
+                                    text: 'กราฟแสดง % การตอบถูก/ผิด'
+                                },
+                                tooltip: {
+                                    valueSuffix: '%'
+                                },
+                                plotOptions: {
+                                    pie: {
+                                        allowPointSelect: true,
+                                        borderWidth: 2,
+                                        cursor: 'pointer',
+                                        dataLabels: {
+                                            enabled: true,
+                                            format: '<b>{point.name}</b> : {point.percentage}%',
+                                            distance: 20
+                                        }
+                                    }
+                                },
+                                series: [{
+                                    name: 'Result',
+                                    colorByPoint: true,
+                                    data: [{
+                                        name: 'ตอบถูก',
+                                        y: {{ post_attempts_data[0].correct_answers / post_attempts_data[0].question_count * 100 }},
+                                        sliced: true,
+                                        selected: true
+                                    }, {
+                                        name: 'ตอบผิด',
+                                        y: {{ post_attempts_data[0].incorrect_answers / post_attempts_data[0].question_count * 100 }}
+                                    }]
+                                }]
+                            });
+                        </script>
+                    </div>
+
+                    <div class="col-md-4">
+                        <h5 class="card-title">รายงานผลสอบ Post-test</h5>
+                        <table class="table table-bordered table-striped">
+                            <tbody>
+                                {% for attempt in post_attempts_data %}
+                                <tr>
+                                    <th>ข้อสอบทั้งหมด</th>
+                                    <td>{{ attempt.question_count }} ข้อ</td>
+                                </tr>
+                                <tr>
+                                    <th>ตอบถูก</th>
+                                    <td>{{ attempt.correct_answers }} ข้อ</td>
+                                </tr>
+                                <tr>
+                                    <th>ตอบผิด</th>
+                                    <td>{{ attempt.incorrect_answers }} ข้อ</td>
+                                </tr>
+                                <tr>
+                                    <th>เกณฑ์ผ่าน</th>
+                                    <td>{{ attempt.passing_percentage }}%</td>
+                                </tr>
+                                <tr>
+                                    <th>ทำข้อสอบได้</th>
+                                    <td>{{ attempt.percentage_score }}%</td>
+                                </tr>
+                                {% endfor %}
+                                <tr>
+                                    <th class="table-danger">สรุป</th>
+                                    <td id="summaryText1" class="table-danger"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
 </div>
 
 <!-- jQuery -->
@@ -154,11 +262,22 @@
     .failed {
         color: red;
     }
+    #summaryText1 {
+        font-weight: bold;
+    }
+
+    .passed {
+        color: green;
+    }
+
+    .failed {
+        color: red;
+    }
 </style>
 
 <script>
-    var passPercentage = {{ attempts_data[0].passing_percentage }};
-    var actualPercentage = {{ attempts_data[0].percentage_score }};
+    var passPercentage = {{ pre_attempts_data[0].passing_percentage }};
+    var actualPercentage = {{ pre_attempts_data[0].percentage_score }};
 
     var summaryElement = document.getElementById('summaryText');
     if (actualPercentage >= passPercentage) {
@@ -168,6 +287,19 @@
         summaryElement.textContent = 'ไม่ผ่าน';
         summaryElement.classList.add('failed');
     }
+    {% if post_attempts_data %}
+    var passPercentagePost = {{ post_attempts_data[0].passing_percentage }};
+    var actualPercentagePost = {{ post_attempts_data[0].percentage_score }};
+
+    var summaryElementPost = document.getElementById('summaryText1');
+    if (actualPercentagePost >= passPercentagePost) {
+        summaryElementPost.textContent = 'ผ่าน';
+        summaryElementPost.classList.add('passed');
+    } else {
+        summaryElementPost.textContent = 'ไม่ผ่าน';
+        summaryElementPost.classList.add('failed');
+    }
+    {% endif %}
 </script>
 
 {% include 'components/footer_dashboard.html' %}
