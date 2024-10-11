@@ -65,7 +65,7 @@ CREATE TABLE `categories` (
 --
 
 INSERT INTO `categories` (`id`, `icon`, `name`) VALUES
-(1, 'fa-solid fa-chart-simple', 'Power BI');
+(1, 'fas fa-chart-bar', 'Power BI');
 
 -- --------------------------------------------------------
 
