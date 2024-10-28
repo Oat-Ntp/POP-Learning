@@ -48,7 +48,7 @@ CREATE TABLE `admin` (
 --
 
 INSERT INTO `admin` (`id`, `first_name`, `last_name`, `username`, `email`, `tel`, `registration_date`, `password`, `gender`, `role`, `adminimage`) VALUES
-(1, 'Natthaphat', 'Pankaing', 'oat123', 'oat@gmail.com', '0923162131', '2024-05-27 00:00:00', 'Oat12345', 'Male', 'admin', '../static/img/updated/admin/oat.jpg');
+(1, 'Natthaphat', 'Pankaing', 'oat123', 'oat@gmail.com', '0845892234', '2024-05-27 00:00:00', 'Oat12345', 'Male', 'admin', '../static/img/updated/admin/oat.jpg');
 
 -- --------------------------------------------------------
 

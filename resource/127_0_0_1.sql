@@ -48,7 +48,7 @@ CREATE TABLE `admin` (
 --
 
 INSERT INTO `admin` (`id`, `first_name`, `last_name`, `username`, `email`, `tel`, `registration_date`, `password`, `gender`, `role`, `adminimage`) VALUES
-(1, 'Natthaphat', 'Pankaing', 'oat123', 'oat@gmail.com', '0923162131', '2024-05-27 00:00:00', 'Oat12345', 'Male', 'admin', '../static/img/updated/admin/oat.jpg');
+(1, 'Natthaphat', 'Pankaing', 'oat123', 'oat@gmail.com', '0845892234', '2024-05-27 00:00:00', 'Oat12345', 'Male', 'admin', '../static/img/updated/admin/oat.jpg');
 
 -- --------------------------------------------------------
 
@@ -501,9 +501,9 @@ INSERT INTO `user` (`id`, `first_name`, `last_name`, `username`, `email`, `regis
 (20, 'ปิยะ', 'กุลมี', 'bank123', 'bank@gmail.com', '2024-05-27 00:00:00', 'Bank1234', 'Male', 'user', '../static/img/updated/user/bank.jpg'),
 (33, 'Chutmongkol', 'Sangsakul', 'jame111', 'jame@gmail.com', '2024-05-29 23:03:33', 'Jame1234', 'Male', 'user', '../static/img/updated/user/jame.jpg'),
 (47, 'Kanthavee', 'Phongsarai', 'mon1', 'mon@gmail.com', '2024-08-18 16:03:32', 'Mon12345', 'Male', 'user', '../static/img/uploads/users/mon.jpg'),
-(48, 'Natthaphat', 'Pankaing', 'Oat005', '164414241005-st@rmutsb.ac.th', '2024-08-18 18:02:10', 'Oat12345', 'Male', 'user', '../static/img/updated/user/oat.jpg'),
-(50, 'Tamonpun', 'Intawong', 'Ploy019', '164414241019-st@rmutsb.ac.th', '2024-10-11 17:04:28', 'Ploy1234', 'Female', 'user', '../static/img/uploads/users/ploy.jpg'),
-(51, 'Nuchanart', 'Tientong', 'Puy007', '164414241007-st@rmutsb.ac.th', '2024-10-11 17:06:23', 'Puy12345', 'Female', 'user', '../static/img/uploads/users/puy.jpg');
+(48, 'Natthaphat', 'Pankaing', 'Oat005', 'oat123@gmail.com', '2024-08-18 18:02:10', 'Oat12345', 'Male', 'user', '../static/img/updated/user/oat.jpg'),
+(50, 'Tamonpun', 'Intawong', 'Ploy019', 'ploy123@gmail.com', '2024-10-11 17:04:28', 'Ploy1234', 'Female', 'user', '../static/img/uploads/users/ploy.jpg'),
+(51, 'Nuchanart', 'Tientong', 'Puy007', 'puy123@gmail.com', '2024-10-11 17:06:23', 'Puy12345', 'Female', 'user', '../static/img/uploads/users/puy.jpg');
 
 -- --------------------------------------------------------
 
